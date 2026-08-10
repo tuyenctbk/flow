@@ -1,0 +1,1904 @@
+package com.example.ui.screens
+
+import com.example.ui.components.BreathPacer
+import com.example.ui.components.MinimalistFocusTimer
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import com.example.R
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.ui.theme.*
+import com.example.viewmodel.BreathPhase
+import com.example.viewmodel.FocusState
+import com.example.viewmodel.FlowViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+@Composable
+fun FlowScreen(
+    viewModel: FlowViewModel,
+    modifier: Modifier = Modifier
+) {
+    val focusState by viewModel.focusState.collectAsState()
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE || event == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+                viewModel.autoPauseTimer()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        AnimatedContent(
+            targetState = focusState,
+            transitionSpec = {
+                if (initialState == FocusState.DEEP_SHIELD && targetState == FocusState.REFLECTION) {
+                    (fadeIn(animationSpec = tween(1500, easing = EaseInOutSine)) +
+                     slideInVertically(animationSpec = tween(1500, easing = EaseInOutSine), initialOffsetY = { it / 8 })) togetherWith
+                    fadeOut(animationSpec = tween(1000, easing = EaseInOutSine))
+                } else if (initialState == FocusState.RITUAL && targetState == FocusState.DEEP_SHIELD) {
+                    fadeIn(animationSpec = tween(1200, easing = EaseInOutSine)) togetherWith
+                    fadeOut(animationSpec = tween(800, easing = EaseInOutSine))
+                } else {
+                    fadeIn(animationSpec = tween(600)) togetherWith fadeOut(animationSpec = tween(500))
+                }
+            },
+            label = "FocusStateTransition"
+        ) { state ->
+            when (state) {
+                FocusState.NONE -> IdleSetupView(viewModel)
+                FocusState.COMPASS -> FlowCompassView(viewModel)
+                FocusState.RITUAL -> ThresholdRitualView(viewModel)
+                FocusState.DEEP_SHIELD -> DeepShieldView(viewModel)
+                FocusState.REFLECTION -> MetacognitiveMirrorView(viewModel)
+            }
+        }
+
+        SmartPromptOverlay(viewModel)
+    }
+}
+
+@Composable
+fun IdleSetupView(viewModel: FlowViewModel) {
+    val ZenBlack = MaterialTheme.colorScheme.background
+    val ZenAmber = MaterialTheme.colorScheme.primary
+    val ZenAmberDim = MaterialTheme.colorScheme.tertiary
+    val ZenTextPrimary = MaterialTheme.colorScheme.onSurface
+    val ZenTextSecondary = MaterialTheme.colorScheme.onSurfaceVariant
+    val ZenStoneDark = MaterialTheme.colorScheme.surface
+    val ZenStoneGrey = MaterialTheme.colorScheme.surfaceVariant
+    val ZenStoneLight = MaterialTheme.colorScheme.outline
+    val ZenMossGreen = MaterialTheme.colorScheme.secondary
+
+    val currentIntent by viewModel.currentIntent.collectAsState()
+    val selectedDuration by viewModel.selectedDurationMinutes.collectAsState()
+    val suggestedIntents by viewModel.suggestedIntents.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
+    val hapticFeedbackEnabled by viewModel.hapticFeedbackEnabled.collectAsState()
+    val selectedAmbientProfile by viewModel.selectedAmbientProfile.collectAsState()
+    val dailyIntention by viewModel.dailyIntention.collectAsState()
+    val firstTimerStarted by viewModel.firstTimerStarted.collectAsState()
+    val gammaEnabled by viewModel.gammaEnabled.collectAsState()
+    val rainEnabled by viewModel.rainEnabled.collectAsState()
+    val communityStats by viewModel.communityStats.collectAsState()
+    val aiMantra by viewModel.aiMantra.collectAsState()
+    val isAiLoading by viewModel.isAiLoading.collectAsState()
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+
+    val presetIntents = suggestedIntents.ifEmpty {
+        listOf("Deep Reading", "Creative Writing", "Zen Meditation", "Strategic Planning")
+    }
+
+    val durations = listOf(5, 10, 15, 25, 45, 60, 90, 120)
+    var showCustomSlider by remember { mutableStateOf(false) }
+    var showBreathingOverlay by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+
+    if (showSettingsDialog) {
+        FlowSettingsDialog(viewModel = viewModel, onDismissRequest = { showSettingsDialog = false })
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // App Header
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "FLOW",
+                    style = MaterialTheme.typography.displayMedium.copy(
+                        fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.Light,
+                        letterSpacing = 12.sp,
+                        color = ZenAmber
+                    ),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Stillness in Action.",
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.Normal,
+                        letterSpacing = 3.sp,
+                        color = ZenTextSecondary
+                    ),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Randomized Daily Wisdom quote
+                val dailyWisdom = remember {
+                    listOf(
+                        "“The present moment is filled with joy and happiness. If you are attentive, you will see it.” — Thich Nhat Hanh",
+                        "“Concentrate all your thoughts upon the work at hand. The sun's rays do not burn until brought to a focus.” — Alexander Graham Bell",
+                        "“Quiet the mind and the soul will speak.” — Buddha",
+                        "“Focus is a matter of deciding what things you're not going to do.” — John Carmack",
+                        "“Do not dwell in the past, do not dream of the future, concentrate the mind on the present moment.” — Buddha",
+                        "“Simplicity is the ultimate sophistication.” — Leonardo da Vinci",
+                        "“Be here now.” — Ram Dass",
+                        "“The only way to do great work is to love what you do.” — Steve Jobs",
+                        "“Rule your mind or it will rule you.” — Horace",
+                        "“He who has a calm and happy nature will hardly feel the pressure of age.” — Plato"
+                    ).random()
+                }
+
+                Text(
+                    text = dailyWisdom,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = FontFamily.Serif,
+                        fontStyle = FontStyle.Italic,
+                        color = ZenAmberDim,
+                        textAlign = TextAlign.Center
+                    ),
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp)
+                        .testTag("daily_wisdom_quote")
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(
+                    onClick = { showBreathingOverlay = true },
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, ZenAmber.copy(alpha = 0.5f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ZenAmber),
+                    modifier = Modifier.testTag("trigger_breathing_overlay_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.SelfImprovement,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Center Mind (Breath Pacer)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                }
+            }
+
+            IconButton(
+                onClick = { showSettingsDialog = true },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .testTag("settings_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = "Settings",
+                    tint = ZenTextSecondary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        // Daily Intention Field (fades out once they start their first timer)
+        AnimatedVisibility(
+            visible = !firstTimerStarted,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            var intentionInput by remember { mutableStateOf(dailyIntention) }
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp)
+                    .testTag("daily_intention_card"),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = ZenStoneDark),
+                border = BorderStroke(1.dp, ZenAmber.copy(alpha = 0.15f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Lightbulb,
+                            contentDescription = null,
+                            tint = ZenAmber,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "DAILY INTENTION",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = ZenAmber,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.5.sp
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    BasicTextField(
+                        value = intentionInput,
+                        onValueChange = {
+                            intentionInput = it
+                            viewModel.setDailyIntention(it)
+                        },
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = ZenTextPrimary,
+                            fontFamily = FontFamily.Serif
+                        ),
+                        cursorBrush = SolidColor(ZenAmber),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("daily_intention_input"),
+                        decorationBox = { innerTextField ->
+                            if (intentionInput.isEmpty()) {
+                                Text(
+                                    text = "Write your one focus goal for today...",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = ZenTextSecondary,
+                                        fontFamily = FontFamily.Serif,
+                                        fontStyle = FontStyle.Italic
+                                    )
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+                }
+            }
+        }
+
+        // Setup Panel
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "What is your single intent?",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = ZenTextPrimary,
+                    fontWeight = FontWeight.Normal,
+                    letterSpacing = 1.sp
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Start
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = currentIntent,
+                onValueChange = { viewModel.setIntent(it) },
+                placeholder = {
+                    Text(
+                        stringResource(R.string.intent_placeholder),
+                        color = ZenTextSecondary,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = ZenTextPrimary,
+                    unfocusedTextColor = ZenTextPrimary,
+                    focusedBorderColor = ZenAmber,
+                    unfocusedBorderColor = ZenStoneGrey,
+                    focusedContainerColor = ZenStoneDark,
+                    unfocusedContainerColor = ZenBlack
+                ),
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                }),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Quick Selection Chips
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                presetIntents.forEach { intent ->
+                    val isSelected = currentIntent == intent
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(if (isSelected) ZenAmber else ZenStoneGrey)
+                            .border(1.dp, if (isSelected) ZenAmber else ZenStoneLight, RoundedCornerShape(20.dp))
+                            .clickable {
+                                viewModel.setIntent(intent)
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                            }
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = intent,
+                            color = if (isSelected) ZenBlack else ZenTextPrimary,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Duration Selector Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Focus Duration: $selectedDuration min",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = ZenTextPrimary,
+                        fontWeight = FontWeight.Normal,
+                        letterSpacing = 1.sp
+                    )
+                )
+
+                TextButton(onClick = { showCustomSlider = !showCustomSlider }) {
+                    Text(
+                        text = if (showCustomSlider) "Presets" else "Custom",
+                        color = ZenAmber,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+
+            if (showCustomSlider) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Slider(
+                        value = selectedDuration.toFloat(),
+                        onValueChange = { viewModel.setDuration(it.toInt().coerceIn(1, 180)) },
+                        valueRange = 1f..180f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = ZenAmber,
+                            activeTrackColor = ZenAmber,
+                            inactiveTrackColor = ZenStoneGrey
+                        )
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("1 min", style = MaterialTheme.typography.labelSmall, color = ZenTextSecondary)
+                        Text("90 min", style = MaterialTheme.typography.labelSmall, color = ZenTextSecondary)
+                        Text("180 min (3h)", style = MaterialTheme.typography.labelSmall, color = ZenTextSecondary)
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    durations.forEach { mins ->
+                        val isSelected = selectedDuration == mins
+                        Box(
+                            modifier = Modifier
+                                .height(46.dp)
+                                .widthIn(min = 52.dp)
+                                .clip(RoundedCornerShape(23.dp))
+                                .background(if (isSelected) ZenAmber else ZenStoneDark)
+                                .border(1.dp, if (isSelected) ZenAmber else ZenStoneGrey, RoundedCornerShape(23.dp))
+                                .clickable { viewModel.setDuration(mins) }
+                                .padding(horizontal = 14.dp)
+                                .wrapContentSize(Alignment.Center)
+                        ) {
+                            Text(
+                                text = when (mins) {
+                                    5 -> "5m"
+                                    10 -> "10m"
+                                    15 -> "15m"
+                                    25 -> "25m"
+                                    45 -> "45m"
+                                    60 -> "60m"
+                                    90 -> "90m"
+                                    120 -> "120m"
+                                    else -> "${mins}m"
+                                },
+                                color = if (isSelected) ZenBlack else ZenTextPrimary,
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Ambient Background Soundscapes
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "AMBIENT FOCUS SOUNDSCAPES",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = ZenAmber,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                    )
+
+                    IconButton(
+                        onClick = { viewModel.strikeBowl() },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(ZenStoneGrey, CircleShape)
+                            .testTag("sound_bowl_strike")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.NotificationsActive,
+                            contentDescription = "Strike Bowl",
+                            tint = ZenAmber,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    com.example.data.AmbientSoundProfile.entries.forEach { profile ->
+                        val isSelected = selectedAmbientProfile == profile
+                        val profileIcon = when (profile) {
+                            com.example.data.AmbientSoundProfile.NONE -> Icons.Outlined.VolumeOff
+                            com.example.data.AmbientSoundProfile.RAINFALL -> Icons.Outlined.WaterDrop
+                            com.example.data.AmbientSoundProfile.WHITE_NOISE -> Icons.Outlined.Radio
+                            com.example.data.AmbientSoundProfile.CAFE_ATMOSPHERE -> Icons.Outlined.LocalCafe
+                            com.example.data.AmbientSoundProfile.GAMMA_40HZ -> Icons.Outlined.Psychology
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) ZenAmber.copy(alpha = 0.1f) else ZenStoneDark)
+                                .border(1.dp, if (isSelected) ZenAmber else ZenStoneGrey, RoundedCornerShape(12.dp))
+                                .clickable { viewModel.setAmbientProfile(profile) }
+                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                                .testTag("ambient_sound_chip_${profile.name.lowercase()}"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = profileIcon,
+                                    contentDescription = null,
+                                    tint = if (isSelected) ZenAmber else ZenTextSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = profile.displayName,
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        color = if (isSelected) ZenAmber else ZenTextPrimary,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                        fontSize = 12.sp
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+
+        // Action Button
+        Button(
+            onClick = { viewModel.startCalibration() },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ZenAmber,
+                contentColor = ZenBlack
+            ),
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+                .padding(horizontal = 8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.enter_threshold),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp
+                )
+            )
+        }
+    }
+
+    if (showBreathingOverlay) {
+        AlertDialog(
+            onDismissRequest = { showBreathingOverlay = false },
+            containerColor = MaterialTheme.colorScheme.background,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "BREATH PACER",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontFamily = FontFamily.Serif,
+                            letterSpacing = 2.sp,
+                            color = ZenAmber
+                        )
+                    )
+                    IconButton(onClick = { showBreathingOverlay = false }) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = ZenTextSecondary)
+                    }
+                }
+            },
+            text = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    BreathPacer(
+                        onSessionCompleted = {
+                            showBreathingOverlay = false
+                        },
+                        hapticEnabled = hapticFeedbackEnabled
+                    )
+                }
+            },
+            confirmButton = {}
+        )
+    }
+}
+
+@Composable
+fun FlowCompassView(viewModel: FlowViewModel) {
+    val ZenBlack = MaterialTheme.colorScheme.background
+    val ZenAmber = MaterialTheme.colorScheme.primary
+    val ZenAmberDim = MaterialTheme.colorScheme.tertiary
+    val ZenTextPrimary = MaterialTheme.colorScheme.onSurface
+    val ZenTextSecondary = MaterialTheme.colorScheme.onSurfaceVariant
+    val ZenStoneDark = MaterialTheme.colorScheme.surface
+    val ZenStoneGrey = MaterialTheme.colorScheme.surfaceVariant
+    val ZenStoneLight = MaterialTheme.colorScheme.outline
+    val ZenMossGreen = MaterialTheme.colorScheme.secondary
+
+    val challenge by viewModel.challengeLevel.collectAsState()
+    val skill by viewModel.skillLevel.collectAsState()
+
+    val guidanceText = remember(challenge, skill) {
+        when {
+            challenge > skill -> {
+                "Challenge > Skill (Anxiety)\n\nBoredom is quiet, but Anxiety is a storm. Break your first step into a simple, 5-minute task to calm the mind."
+            }
+            skill > challenge -> {
+                "Skill > Challenge (Boredom)\n\nA quiet lake gathers dust. Add a time constraint or increase the speed to spark the competitive flame in your focus."
+            }
+            else -> {
+                "Challenge = Skill (Flow State)\n\nPerfect equilibrium. Your skills match the obstacle. The mind is ready to dissolve into the work. Proceed."
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "FLOW COMPASS",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = FontFamily.Serif,
+                    letterSpacing = 4.sp,
+                    color = ZenAmber
+                )
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Calibrating the Mind",
+                style = MaterialTheme.typography.bodyMedium.copy(color = ZenTextSecondary)
+            )
+        }
+
+        // Calibration Controls
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Compass Diagram placeholder (simple elegant design)
+            Box(
+                modifier = Modifier
+                    .size(160.dp)
+                    .border(1.dp, ZenStoneGrey, CircleShape)
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val center = Offset(size.width / 2, size.height / 2)
+                    // Draw compass lines
+                    drawLine(ZenStoneLight, Offset(0f, center.y), Offset(size.width, center.y))
+                    drawLine(ZenStoneLight, Offset(center.x, 0f), Offset(center.x, size.height))
+                    
+                    // Draw user position dot based on skill vs challenge
+                    val x = center.x + (skill - 3) * (size.width / 10f)
+                    val y = center.y - (challenge - 3) * (size.height / 10f)
+                    
+                    drawCircle(
+                        color = if (challenge == skill) ZenMossGreen else ZenAmber,
+                        radius = 8f,
+                        center = Offset(x, y)
+                    )
+                }
+                Text(
+                    text = "Skill ➔\nChallenge ↑",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = ZenTextSecondary,
+                        textAlign = TextAlign.Center,
+                        fontSize = 8.sp
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Challenge Slider
+            Text(
+                text = "Challenge Level: $challenge",
+                style = MaterialTheme.typography.bodyLarge.copy(color = ZenTextPrimary)
+            )
+            Slider(
+                value = challenge.toFloat(),
+                onValueChange = { viewModel.setChallengeLevel(it.toInt()) },
+                valueRange = 1f..5f,
+                steps = 3,
+                colors = SliderDefaults.colors(
+                    thumbColor = ZenAmber,
+                    activeTrackColor = ZenAmber,
+                    inactiveTrackColor = ZenStoneGrey
+                ),
+                modifier = Modifier.fillMaxWidth(0.9f)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Skill Slider
+            Text(
+                text = "Your Skill Level: $skill",
+                style = MaterialTheme.typography.bodyLarge.copy(color = ZenTextPrimary)
+            )
+            Slider(
+                value = skill.toFloat(),
+                onValueChange = { viewModel.setSkillLevel(it.toInt()) },
+                valueRange = 1f..5f,
+                steps = 3,
+                colors = SliderDefaults.colors(
+                    thumbColor = ZenMossGreen,
+                    activeTrackColor = ZenMossGreen,
+                    inactiveTrackColor = ZenStoneGrey
+                ),
+                modifier = Modifier.fillMaxWidth(0.9f)
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Zen Advice Panel
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(ZenStoneDark, RoundedCornerShape(16.dp))
+                    .border(1.dp, ZenStoneGrey, RoundedCornerShape(16.dp))
+                    .padding(18.dp)
+            ) {
+                Text(
+                    text = guidanceText,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = ZenTextPrimary,
+                        lineHeight = 22.sp,
+                        fontFamily = FontFamily.Serif
+                    ),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        // Actions
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                onClick = { viewModel.cancelSessionFlow() },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = ZenTextSecondary),
+                border = BorderStroke(1.dp, ZenStoneGrey),
+                modifier = Modifier.weight(1f).height(50.dp)
+            ) {
+                Text("Cancel")
+            }
+
+            Button(
+                onClick = { viewModel.proceedToRitual() },
+                colors = ButtonDefaults.buttonColors(containerColor = ZenAmber, contentColor = ZenBlack),
+                modifier = Modifier.weight(2f).height(50.dp)
+            ) {
+                Text("Proceed to Ritual")
+            }
+        }
+    }
+}
+
+@Composable
+fun ThresholdRitualView(viewModel: FlowViewModel) {
+    val ZenBlack = MaterialTheme.colorScheme.background
+    val ZenAmber = MaterialTheme.colorScheme.primary
+    val ZenAmberDim = MaterialTheme.colorScheme.tertiary
+    val ZenTextPrimary = MaterialTheme.colorScheme.onSurface
+    val ZenTextSecondary = MaterialTheme.colorScheme.onSurfaceVariant
+    val ZenStoneDark = MaterialTheme.colorScheme.surface
+    val ZenStoneGrey = MaterialTheme.colorScheme.surfaceVariant
+
+    var selectedRitualTab by remember { mutableStateOf(0) } // 0: Guided Pacer, 1: Touch Anchor
+
+    val isHolding by viewModel.holdingCircle.collectAsState()
+    val phase by viewModel.breathPhase.collectAsState()
+    val progress by viewModel.breathProgress.collectAsState()
+    val count by viewModel.breathCount.collectAsState()
+    val hapticFeedbackEnabled by viewModel.hapticFeedbackEnabled.collectAsState()
+
+    // Smooth pulsing values for touch anchor
+    val infiniteTransition = rememberInfiniteTransition(label = "PulsingCircle")
+    val idlePulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "IdlePulse"
+    )
+
+    val targetScale = when {
+        !isHolding -> idlePulseScale
+        phase == BreathPhase.IN -> 1.0f + (progress * 0.8f)
+        phase == BreathPhase.HOLD -> 1.8f
+        phase == BreathPhase.OUT -> 1.8f - (progress * 0.8f)
+        else -> 1.0f
+    }
+
+    val glowIntensity = if (isHolding && phase == BreathPhase.HOLD) progress else 0f
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Header info
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "THE THRESHOLD",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = FontFamily.Serif,
+                    letterSpacing = 4.sp,
+                    color = ZenAmber
+                )
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Sever the ties of the noisy world.",
+                style = MaterialTheme.typography.bodyMedium.copy(color = ZenTextSecondary),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Ritual Mode Switcher
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(ZenStoneDark)
+                    .border(1.dp, ZenStoneGrey, RoundedCornerShape(20.dp))
+                    .padding(4.dp)
+                    .testTag("breath_ritual_mode_switcher"),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf("Breath Pacer", "Touch Anchor").forEachIndexed { index, title ->
+                    val isSelected = selectedRitualTab == index
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (isSelected) ZenAmber else Color.Transparent)
+                            .clickable { selectedRitualTab = index }
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                            .testTag("ritual_tab_$index"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) ZenBlack else ZenTextSecondary
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (selectedRitualTab == 0) {
+            // Compose Breath Pacer Component
+            BreathPacer(
+                modifier = Modifier.fillMaxWidth(),
+                onSessionCompleted = {
+                    viewModel.proceedToShield()
+                },
+                hapticEnabled = hapticFeedbackEnabled
+            )
+        } else {
+            // Touch Anchor Breathing Circle
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(vertical = 16.dp)
+            ) {
+                Text(
+                    text = when {
+                        !isHolding -> stringResource(R.string.breath_press_hold)
+                        phase == BreathPhase.IN -> stringResource(R.string.breath_in)
+                        phase == BreathPhase.HOLD -> stringResource(R.string.breath_hold)
+                        phase == BreathPhase.OUT -> stringResource(R.string.breath_out)
+                        else -> stringResource(R.string.breath_centering)
+                    },
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.Light,
+                        color = if (isHolding) ZenAmber else ZenTextPrimary
+                    ),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = if (isHolding) stringResource(R.string.breath_count_format, count) else stringResource(R.string.breath_anchor),
+                    style = MaterialTheme.typography.bodyMedium.copy(color = ZenTextSecondary)
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(220.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = {
+                                    viewModel.startHoldingBreath()
+                                    tryAwaitRelease()
+                                    viewModel.releaseHoldingBreath()
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val center = Offset(size.width / 2, size.height / 2)
+                        val baseRadius = size.width / 2f - 20f
+
+                        drawCircle(
+                            color = ZenStoneGrey,
+                            radius = baseRadius,
+                            center = center,
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f)
+                        )
+
+                        val overallProgress = ((count - 1) + when (phase) {
+                            BreathPhase.IN -> progress * 0.33f
+                            BreathPhase.HOLD -> 0.33f + progress * 0.33f
+                            BreathPhase.OUT -> 0.66f + progress * 0.33f
+                            else -> 1f
+                        }) / 3f
+
+                        drawArc(
+                            color = ZenAmber,
+                            startAngle = -90f,
+                            sweepAngle = overallProgress * 360f,
+                            useCenter = false,
+                            topLeft = Offset(center.x - baseRadius, center.y - baseRadius),
+                            size = androidx.compose.ui.geometry.Size(baseRadius * 2, baseRadius * 2),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 8f)
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier.size(140.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer(
+                                    scaleX = targetScale,
+                                    scaleY = targetScale
+                                )
+                        ) {
+                            val center = Offset(size.width / 2f, size.height / 2f)
+                            val radius = size.minDimension / 2f
+                            val fillAlpha = (0.85f + (glowIntensity * 0.15f)).coerceIn(0f, 1f)
+
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colorStops = arrayOf(
+                                        0.0f to ZenAmber.copy(alpha = fillAlpha),
+                                        0.7f to ZenAmberDim.copy(alpha = fillAlpha * 0.7f),
+                                        1.0f to ZenAmber.copy(alpha = 0.4f)
+                                    ),
+                                    center = center,
+                                    radius = radius
+                                ),
+                                radius = radius,
+                                center = center
+                            )
+                        }
+
+                        Icon(
+                            imageVector = Icons.Filled.SelfImprovement,
+                            contentDescription = "Zen Breath",
+                            tint = ZenBlack,
+                            modifier = Modifier.size(44.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Actions: Begin Focus Session / Cancel
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Button(
+                onClick = { viewModel.proceedToShield() },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ZenAmber,
+                    contentColor = ZenBlack
+                ),
+                shape = RoundedCornerShape(22.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .testTag("start_deep_focus_after_breath_button")
+            ) {
+                Text(
+                    text = "BEGIN DEEP FOCUS SESSION",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.5.sp
+                    )
+                )
+            }
+
+            OutlinedButton(
+                onClick = { viewModel.cancelSessionFlow() },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = ZenTextSecondary),
+                border = BorderStroke(1.dp, ZenStoneGrey),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+            ) {
+                Text("Cancel Session")
+            }
+        }
+    }
+}
+
+@Composable
+fun DeepShieldView(viewModel: FlowViewModel) {
+    val ZenBlack = MaterialTheme.colorScheme.background
+    val ZenAmber = MaterialTheme.colorScheme.primary
+    val ZenAmberDim = MaterialTheme.colorScheme.tertiary
+    val ZenTextPrimary = MaterialTheme.colorScheme.onSurface
+    val ZenTextSecondary = MaterialTheme.colorScheme.onSurfaceVariant
+    val ZenStoneDark = MaterialTheme.colorScheme.surface
+    val ZenStoneGrey = MaterialTheme.colorScheme.surfaceVariant
+    val ZenStoneLight = MaterialTheme.colorScheme.outline
+    val ZenMossGreen = MaterialTheme.colorScheme.secondary
+
+    val remainingSeconds by viewModel.remainingSeconds.collectAsState()
+    val totalMinutes by viewModel.selectedDurationMinutes.collectAsState()
+    val isTimerRunning by viewModel.isTimerRunning.collectAsState()
+    val gammaEnabled by viewModel.gammaEnabled.collectAsState()
+    val rainEnabled by viewModel.rainEnabled.collectAsState()
+    val intent by viewModel.currentIntent.collectAsState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ZenBlack)
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Minimal Top Intent
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Spa,
+                contentDescription = "Intent",
+                tint = ZenAmber,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (intent.isBlank() || intent == "Center" || intent == "Vô tâm / Center") stringResource(R.string.intent_center) else intent,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = ZenTextSecondary,
+                    letterSpacing = 2.sp,
+                    fontFamily = FontFamily.Serif
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Minimalist Focus Timer Component (Circular Progress Bar & Customizable Intervals)
+        MinimalistFocusTimer(
+            totalSeconds = totalMinutes * 60,
+            remainingSeconds = remainingSeconds,
+            isRunning = isTimerRunning,
+            onTogglePlayPause = { viewModel.toggleTimerPlayPause() },
+            onReset = { viewModel.resetTimer() },
+            onSelectInterval = { mins -> viewModel.updateFocusInterval(mins) },
+            presetIntervals = listOf(5, 10, 15, 25, 45, 60, 90, 120),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Soundscape Synthesizer Controls
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Generative Soundscapes",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = ZenTextSecondary,
+                    letterSpacing = 1.sp
+                )
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(0.9f),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Gamma Wave Toggle
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(
+                        onClick = { viewModel.toggleGamma(!gammaEnabled) },
+                        modifier = Modifier
+                            .size(54.dp)
+                            .background(if (gammaEnabled) ZenAmber.copy(alpha = 0.2f) else ZenStoneDark, CircleShape)
+                            .border(1.dp, if (gammaEnabled) ZenAmber else ZenStoneGrey, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.GraphicEq,
+                            contentDescription = "Gamma Waves",
+                            tint = if (gammaEnabled) ZenAmber else ZenTextSecondary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Gamma 40Hz", style = MaterialTheme.typography.labelSmall.copy(color = ZenTextSecondary))
+                }
+
+                // Brownian Rain Toggle
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(
+                        onClick = { viewModel.toggleRain(!rainEnabled) },
+                        modifier = Modifier
+                            .size(54.dp)
+                            .background(if (rainEnabled) ZenAmber.copy(alpha = 0.2f) else ZenStoneDark, CircleShape)
+                            .border(1.dp, if (rainEnabled) ZenAmber else ZenStoneGrey, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.MusicNote,
+                            contentDescription = "Brown Noise",
+                            tint = if (rainEnabled) ZenAmber else ZenTextSecondary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Zen Rain", style = MaterialTheme.typography.labelSmall.copy(color = ZenTextSecondary))
+                }
+
+                // Singing Bowl Direct Strike
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(
+                        onClick = { viewModel.strikeBowl() },
+                        modifier = Modifier
+                            .size(54.dp)
+                            .background(ZenStoneDark, CircleShape)
+                            .border(1.dp, ZenStoneGrey, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.NotificationsActive,
+                            contentDescription = "Bowl strike",
+                            tint = ZenAmber
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Bowl Strike", style = MaterialTheme.typography.labelSmall.copy(color = ZenTextSecondary))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Exit Session (requires a mindful Long Press to prevent accidental cancel)
+            var clickCount by remember { mutableStateOf(0) }
+            val coroutineScope = rememberCoroutineScope()
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(ZenStoneDark)
+                    .border(1.dp, ZenStoneGrey, RoundedCornerShape(20.dp))
+                    .clickable {
+                        clickCount++
+                        if (clickCount >= 3) {
+                            viewModel.cancelSessionFlow()
+                        } else {
+                            coroutineScope.launch {
+                                delay(1500)
+                                if (clickCount > 0) clickCount--
+                            }
+                        }
+                    }
+                    .padding(horizontal = 24.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = if (clickCount == 0) "Tap 3 times to exit" else "Tap ${3 - clickCount} more times",
+                    color = if (clickCount > 0) ZenAmber else ZenTextSecondary,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MetacognitiveMirrorView(viewModel: FlowViewModel) {
+    val ZenBlack = MaterialTheme.colorScheme.background
+    val ZenAmber = MaterialTheme.colorScheme.primary
+    val ZenAmberDim = MaterialTheme.colorScheme.tertiary
+    val ZenTextPrimary = MaterialTheme.colorScheme.onSurface
+    val ZenTextSecondary = MaterialTheme.colorScheme.onSurfaceVariant
+    val ZenStoneDark = MaterialTheme.colorScheme.surface
+    val ZenStoneGrey = MaterialTheme.colorScheme.surfaceVariant
+    val ZenStoneLight = MaterialTheme.colorScheme.outline
+    val ZenMossGreen = MaterialTheme.colorScheme.secondary
+
+    var rating by remember { mutableStateOf(4) }
+    var note by remember { mutableStateOf("") }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    val reflectionQuestions = remember {
+        listOf(
+            "What triggered your deepest moments of concentration during this session?",
+            "Did you notice any subtle resistance or distraction? How did you return to stillness?",
+            "How does your body and mind feel now compared to before you began?",
+            "At what point did the sense of time or self start to dissolve?",
+            "Was there any mental friction or anxiety during this flow? How did you respond to it?",
+            "What insights arose in the quiet spaces of this session?",
+            "How can you carry this state of stillness into the rest of your day?"
+        )
+    }
+    val randomQuestion = remember { reflectionQuestions.random() }
+    val focusManager = LocalFocusManager.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "METACOGNITIVE MIRROR",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = FontFamily.Serif,
+                    letterSpacing = 2.sp,
+                    color = ZenAmber
+                )
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Reflect on your focus state",
+                style = MaterialTheme.typography.bodyMedium.copy(color = ZenTextSecondary)
+            )
+        }
+
+        // Reflection Questions
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(vertical = 24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "To what extent did you 'disappear' into the work?",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontFamily = FontFamily.Serif,
+                    color = ZenTextPrimary
+                ),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Rating Selector (1 to 5)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                (1..5).forEach { score ->
+                    val isSelected = rating == score
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(if (isSelected) ZenAmber else ZenStoneDark)
+                            .border(1.dp, if (isSelected) ZenAmber else ZenStoneGrey, CircleShape)
+                            .clickable { rating = score }
+                            .wrapContentSize(Alignment.Center)
+                    ) {
+                        Text(
+                            text = "$score",
+                            color = if (isSelected) ZenBlack else ZenTextPrimary,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = when (rating) {
+                    1 -> stringResource(R.string.flow_score_1)
+                    2 -> stringResource(R.string.flow_score_2)
+                    3 -> stringResource(R.string.flow_score_3)
+                    4 -> stringResource(R.string.flow_score_4)
+                    5 -> stringResource(R.string.flow_score_5)
+                    else -> ""
+                },
+                style = MaterialTheme.typography.bodyMedium.copy(color = ZenAmber, fontWeight = FontWeight.Bold)
+            )
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // Quick reflection prompt tags
+            Text(
+                text = "Quick Reflection Tags:",
+                style = MaterialTheme.typography.labelSmall.copy(color = ZenTextSecondary),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Start
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            val quickReflectionTags = listOf(
+                "🎯 Deep Immersion",
+                "💡 Sudden Breakthrough",
+                "🌊 Distraction Resisted",
+                "🧘 Calm & Grounded",
+                "⚡ High Energy Flow"
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                quickReflectionTags.forEach { tag ->
+                    val isTagInNote = note.contains(tag)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (isTagInNote) ZenAmber.copy(alpha = 0.25f) else ZenStoneDark)
+                            .border(1.dp, if (isTagInNote) ZenAmber else ZenStoneGrey, RoundedCornerShape(14.dp))
+                            .clickable {
+                                note = if (isTagInNote) {
+                                    note.replace(tag, "").trim()
+                                } else {
+                                    if (note.isBlank()) tag else "$note | $tag"
+                                }
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .testTag("reflection_tag_${tag.take(10)}")
+                    ) {
+                        Text(
+                            text = tag,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = if (isTagInNote) ZenAmber else ZenTextPrimary,
+                                fontSize = 11.sp
+                            )
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Metacognitive Reflection Text Input Field
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = randomQuestion,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        color = ZenAmber,
+                        fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.Normal
+                    ),
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                )
+                Text(
+                    text = "${note.length}/300",
+                    style = MaterialTheme.typography.labelSmall.copy(color = ZenTextSecondary)
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = note,
+                onValueChange = { if (it.length <= 300) note = it },
+                placeholder = {
+                    Text(
+                        "Reflect deeply here... Note your honest feelings, barriers, or calm awareness.",
+                        color = ZenTextSecondary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = ZenTextPrimary,
+                    unfocusedTextColor = ZenTextPrimary,
+                    focusedBorderColor = ZenAmber,
+                    unfocusedBorderColor = ZenStoneGrey,
+                    focusedContainerColor = ZenStoneDark,
+                    unfocusedContainerColor = ZenBlack
+                ),
+                shape = RoundedCornerShape(14.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                }),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(125.dp)
+                    .testTag("reflection_text_input")
+            )
+        }
+
+        // Actions
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                onClick = { viewModel.discardSession() },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = ZenTextSecondary),
+                border = BorderStroke(1.dp, ZenStoneGrey),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp)
+                    .testTag("discard_reflection_button")
+            ) {
+                Text("Discard")
+            }
+
+            Button(
+                onClick = { viewModel.saveSession(rating, note) },
+                colors = ButtonDefaults.buttonColors(containerColor = ZenAmber, contentColor = ZenBlack),
+                modifier = Modifier
+                    .weight(2f)
+                    .height(52.dp)
+                    .testTag("save_reflection_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Save,
+                    contentDescription = null,
+                    tint = ZenBlack,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Save Reflection", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+            }
+        }
+    }
+}
+
+@Composable
+fun SmartPromptOverlay(viewModel: FlowViewModel) {
+    val activePrompt by viewModel.activePrompt.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    if (activePrompt.type == com.example.data.SmartPromptType.NONE) return
+
+    AlertDialog(
+        onDismissRequest = { viewModel.dismissSmartPrompt() },
+        containerColor = MaterialTheme.colorScheme.surface,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = when (activePrompt.type) {
+                        com.example.data.SmartPromptType.RATING -> Icons.Default.Star
+                        com.example.data.SmartPromptType.SHARE -> Icons.Default.Share
+                        com.example.data.SmartPromptType.UPDATE -> Icons.Default.SystemUpdate
+                        else -> Icons.Default.Info
+                    },
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = activePrompt.title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+        },
+        text = {
+            Text(
+                text = activePrompt.message,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        },
+        confirmButton = {
+            when (activePrompt.type) {
+                com.example.data.SmartPromptType.RATING -> {
+                    Button(
+                        onClick = {
+                            viewModel.onRatedApp()
+                            try {
+                                val intent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("market://details?id=com.soloprono.flow")
+                                ).apply {
+                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                val webIntent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.soloprono.flow")
+                                ).apply {
+                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(webIntent)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("Rate 5 Stars", color = MaterialTheme.colorScheme.onPrimary)
+                    }
+                }
+                com.example.data.SmartPromptType.SHARE -> {
+                    Button(
+                        onClick = {
+                            viewModel.onSharedApp()
+                            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(
+                                    android.content.Intent.EXTRA_TEXT,
+                                    "I'm cultivating deep focus with FLOW — Stillness in Action. Check it out: https://play.google.com/store/apps/details?id=com.soloprono.flow"
+                                )
+                            }
+                            context.startActivity(android.content.Intent.createChooser(shareIntent, "Share FLOW"))
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("Share App", color = MaterialTheme.colorScheme.onPrimary)
+                    }
+                }
+                com.example.data.SmartPromptType.UPDATE -> {
+                    Button(
+                        onClick = {
+                            viewModel.dismissSmartPrompt()
+                            try {
+                                val intent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("market://details?id=com.soloprono.flow")
+                                ).apply {
+                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                val webIntent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.soloprono.flow")
+                                ).apply {
+                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(webIntent)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("Update Now", color = MaterialTheme.colorScheme.onPrimary)
+                    }
+                }
+                else -> {}
+            }
+        },
+        dismissButton = {
+            if (activePrompt.type == com.example.data.SmartPromptType.RATING) {
+                TextButton(onClick = { viewModel.onNeverAskRating() }) {
+                    Text("Don't Ask Again", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                TextButton(onClick = { viewModel.dismissSmartPrompt() }) {
+                    Text("Maybe Later", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    )
+}
+
+@Composable
+fun FlowSettingsDialog(
+    viewModel: FlowViewModel,
+    onDismissRequest: () -> Unit
+) {
+    val currentThemeMode by viewModel.themeMode.collectAsState()
+    val hapticEnabled by viewModel.hapticFeedbackEnabled.collectAsState()
+    var showClearConfirm by remember { mutableStateOf(false) }
+
+    val ZenBlack = MaterialTheme.colorScheme.background
+    val ZenAmber = MaterialTheme.colorScheme.primary
+    val ZenAmberDim = MaterialTheme.colorScheme.tertiary
+    val ZenTextPrimary = MaterialTheme.colorScheme.onSurface
+    val ZenTextSecondary = MaterialTheme.colorScheme.onSurfaceVariant
+    val ZenStoneDark = MaterialTheme.colorScheme.surface
+    val ZenStoneGrey = MaterialTheme.colorScheme.surfaceVariant
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        modifier = Modifier.testTag("flow_settings_dialog"),
+        shape = RoundedCornerShape(24.dp),
+        containerColor = ZenStoneDark,
+        title = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "FLOW SETTINGS",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = FontFamily.Serif,
+                        letterSpacing = 2.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ZenAmber
+                    )
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Cultivate stillness and presence.",
+                    style = MaterialTheme.typography.bodySmall.copy(color = ZenTextSecondary)
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Theme Selection Row
+                Column {
+                    Text(
+                        text = "AMBIENT MOOD",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = ZenTextSecondary,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val modes = listOf(
+                            Triple(com.example.viewmodel.FlowThemeMode.CIRCADIAN, "Circadian", "🌿"),
+                            Triple(com.example.viewmodel.FlowThemeMode.DAWN, "Dawn", "🌅"),
+                            Triple(com.example.viewmodel.FlowThemeMode.DUSK, "Dusk", "🌇"),
+                            Triple(com.example.viewmodel.FlowThemeMode.MIDNIGHT, "Midnight", "🌌")
+                        )
+                        
+                        modes.forEach { (mode, name, emoji) ->
+                            val isSelected = currentThemeMode == mode
+                            val borderCol = if (isSelected) ZenAmber else ZenStoneGrey
+                            val bgCol = if (isSelected) ZenAmber.copy(alpha = 0.12f) else Color.Transparent
+                            
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(bgCol)
+                                    .border(1.dp, borderCol, RoundedCornerShape(12.dp))
+                                    .clickable { viewModel.setThemeMode(mode) }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(emoji, fontSize = 14.sp)
+                                    Text(
+                                        text = name,
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            color = if (isSelected) ZenAmber else ZenTextPrimary,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Haptics Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "RHYTHMIC HAPTICS",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = ZenTextSecondary,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                        )
+                        Text(
+                            text = "Gentle haptic pulses during breathing rituals",
+                            style = MaterialTheme.typography.bodySmall.copy(color = ZenTextSecondary),
+                            lineHeight = 14.sp
+                        )
+                    }
+                    Switch(
+                        checked = hapticEnabled,
+                        onCheckedChange = { viewModel.setHapticFeedbackEnabled(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = ZenAmber,
+                            checkedTrackColor = ZenAmber.copy(alpha = 0.5f),
+                            uncheckedThumbColor = ZenStoneGrey,
+                            uncheckedTrackColor = ZenBlack
+                        )
+                    )
+                }
+
+                Divider(color = ZenStoneGrey, thickness = 1.dp)
+
+                // Ephemeral Wipe Button (Clear History)
+                if (showClearConfirm) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(ZenAmber.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                            .border(1.dp, ZenAmber.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "WIPE ALL FOCUS HISTORY?",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = ZenAmber,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "This will irreversibly delete all your saved session logs, reflections, and counters. Your space will return to an empty canvas.",
+                            style = MaterialTheme.typography.bodySmall.copy(color = ZenTextSecondary),
+                            lineHeight = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = { showClearConfirm = false }) {
+                                Text("Cancel", color = ZenTextSecondary)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    viewModel.clearAllHistory()
+                                    showClearConfirm = false
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = ZenAmber, contentColor = ZenBlack),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Wipe Ephemeral", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { showClearConfirm = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(1.dp, ZenAmber.copy(alpha = 0.4f)),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ZenAmber)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteForever,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Clear History (Ephemeral Wipe)", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text("Close", color = ZenAmber, fontWeight = FontWeight.Bold)
+            }
+        }
+    )
+}

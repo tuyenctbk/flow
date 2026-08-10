@@ -1,0 +1,41 @@
+# Built files & build outputs
+*.iml
+.gradle/
+.kotlin/
+/build/
+**/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+*.ap_
+*.apk
+*.aab
+*.dex
+*.class
+
+# IDE & OS files
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*~
+*.bak
+*.tmp
+
+# Local configuration & environment files
+local.properties
+.env
+.env.local
+.env.*.local
+
+# Keystores & signing secrets
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+*.pk8
+
+# Logs & temporary files
+/scratch/
+*.log
