@@ -12,5 +12,7 @@ data class FlowSession(
     val challengeLevel: Int, // 1: Very Low, 3: Medium, 5: Very High
     val skillLevel: Int, // 1: Very Low, 3: Medium, 5: Very High
     val timestamp: Long = System.currentTimeMillis(),
-    val notes: String = ""
+    val notes: String = "",
+    val aiInsight: String = "",
+    val energyRating: Int = 3
 )

@@ -9,6 +9,7 @@ import com.example.data.FlowAppPreferences
 import com.example.data.FlowAudioSynthesizer
 import com.example.data.FlowRepository
 import com.example.data.FlowSession
+import com.example.data.UserReflection
 import com.example.data.SmartPromptInfo
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Calendar
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -44,7 +46,7 @@ enum class FlowThemeMode {
 
 class FlowViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
-    private val repository = FlowRepository(db.flowSessionDao())
+    private val repository = FlowRepository(db.flowSessionDao(), db.userReflectionDao())
     val appPreferences = FlowAppPreferences(application)
     val firebaseIntegration = FirebaseIntegration(application)
 
@@ -81,13 +83,45 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
     val suggestedIntents: StateFlow<List<String>> = appPreferences.suggestedIntents
     val activePrompt: StateFlow<SmartPromptInfo> = appPreferences.activePrompt
 
-    // History Flow
+    // History Flows
     val allSessions: StateFlow<List<FlowSession>> = repository.allSessions
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+    val allReflections: StateFlow<List<UserReflection>> = repository.allReflections
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    private val _reflectionQuery = MutableStateFlow("")
+    val reflectionQuery = _reflectionQuery.asStateFlow()
+
+    fun setReflectionQuery(query: String) {
+        _reflectionQuery.value = query
+    }
+
+    val filteredReflections: StateFlow<List<UserReflection>> = combine(allReflections, _reflectionQuery) { list, query ->
+        if (query.isBlank()) {
+            list
+        } else {
+            list.filter {
+                it.title.contains(query, ignoreCase = true) ||
+                it.content.contains(query, ignoreCase = true) ||
+                it.tags.contains(query, ignoreCase = true) ||
+                it.frictionNotes.contains(query, ignoreCase = true) ||
+                it.breakthroughNotes.contains(query, ignoreCase = true)
+            }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
 
 
@@ -451,7 +485,7 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Post Session Reflection
-    fun saveSession(flowScore: Int, notes: String) {
+    fun saveSession(flowScore: Int, notes: String, frictionNotes: String = "", breakthroughNotes: String = "") {
         viewModelScope.launch {
             val elapsedSeconds = (_selectedDurationMinutes.value * 60) - _remainingSeconds.value
             val intentStr = _currentIntent.value.ifBlank { "Center" }
@@ -463,7 +497,21 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
                 skillLevel = _skillLevel.value,
                 notes = notes
             )
-            repository.insert(session)
+            val sessionId = repository.insertSession(session).toInt()
+
+            // If notes, friction, or breakthrough was provided, store a linked UserReflection automatically
+            if (notes.isNotBlank() || frictionNotes.isNotBlank() || breakthroughNotes.isNotBlank()) {
+                val reflection = UserReflection(
+                    title = "Post-Focus Mirror: $intentStr",
+                    content = if (notes.isNotBlank()) notes else "Flow calibration rating: $flowScore/5",
+                    moodRating = flowScore,
+                    frictionNotes = frictionNotes,
+                    breakthroughNotes = breakthroughNotes,
+                    tags = "Focus, $intentStr",
+                    linkedSessionId = sessionId
+                )
+                repository.insertReflection(reflection)
+            }
             
             // Log Firebase Analytics Event for Session Completion
             firebaseIntegration.logEvent("session_completed", mapOf(
@@ -489,6 +537,61 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
             _focusState.value = FocusState.NONE
             appPreferences.refreshSuggestedIntents()
         }
+    }
+
+    // Direct User Reflection Management (Room Database)
+    fun createReflection(
+        title: String,
+        content: String,
+        moodRating: Int = 3,
+        frictionNotes: String = "",
+        breakthroughNotes: String = "",
+        tags: String = "Reflection",
+        aiInsight: String = "",
+        linkedSessionId: Int? = null
+    ) {
+        viewModelScope.launch {
+            val reflection = UserReflection(
+                title = title.ifBlank { "Mindful Reflection" },
+                content = content,
+                moodRating = moodRating,
+                frictionNotes = frictionNotes,
+                breakthroughNotes = breakthroughNotes,
+                tags = tags.ifBlank { "Journal" },
+                aiInsight = aiInsight,
+                linkedSessionId = linkedSessionId
+            )
+            repository.insertReflection(reflection)
+            firebaseIntegration.logEvent("reflection_created", mapOf("mood" to moodRating))
+        }
+    }
+
+    fun updateReflection(reflection: UserReflection) {
+        viewModelScope.launch {
+            repository.updateReflection(reflection)
+        }
+    }
+
+    fun deleteReflection(reflection: UserReflection) {
+        viewModelScope.launch {
+            repository.deleteReflection(reflection)
+        }
+    }
+
+    fun clearAllReflections() {
+        viewModelScope.launch {
+            repository.clearAllReflections()
+        }
+    }
+
+    suspend fun generateAiJournalInsight(title: String, content: String, friction: String, breakthrough: String): String {
+        val prompt = "User reflection: '$title'. Details: '$content'. Friction encountered: '$friction'. Breakthroughs: '$breakthrough'."
+        return firebaseIntegration.generateReflectionInsight(
+            intent = title.ifBlank { "Daily Mindfulness Reflection" },
+            durationMinutes = 15,
+            flowScore = 4,
+            frictionNotes = prompt
+        )
     }
 
     fun generateAiMantra() {
