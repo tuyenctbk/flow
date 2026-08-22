@@ -21,6 +21,9 @@ interface FlowSessionDao {
     @Query("SELECT COALESCE(SUM(durationSeconds), 0) FROM flow_sessions")
     fun getTotalFocusSeconds(): Flow<Long>
 
+    @Query("SELECT COALESCE(SUM(durationSeconds), 0) FROM flow_sessions WHERE timestamp >= :sinceTimestamp")
+    suspend fun getTotalFocusSecondsSince(sinceTimestamp: Long): Long?
+
     @Query("SELECT COALESCE(AVG(flowScore), 0.0) FROM flow_sessions")
     fun getAverageFlowScore(): Flow<Double>
 

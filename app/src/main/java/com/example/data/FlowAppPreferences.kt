@@ -40,6 +40,16 @@ class FlowAppPreferences(context: Context) {
         private const val KEY_THEME_MODE = "theme_mode_preference"
         private const val KEY_HAPTIC_FEEDBACK = "haptic_feedback_enabled"
         private const val KEY_DAILY_INTENTION = "daily_intention_preference"
+        private const val KEY_TIMER_PALETTE = "timer_palette_preference"
+        private const val KEY_INTENSITY_SHIFTING = "intensity_shifting_enabled"
+        
+        // Daily Reminder Keys
+        private const val KEY_FOCUS_REMINDER_ENABLED = "focus_reminder_enabled"
+        private const val KEY_FOCUS_REMINDER_HOUR = "focus_reminder_hour"
+        private const val KEY_FOCUS_REMINDER_MINUTE = "focus_reminder_minute"
+        private const val KEY_REFLECTION_REMINDER_ENABLED = "reflection_reminder_enabled"
+        private const val KEY_REFLECTION_REMINDER_HOUR = "reflection_reminder_hour"
+        private const val KEY_REFLECTION_REMINDER_MINUTE = "reflection_reminder_minute"
 
         val DEFAULT_INTENT_POOL = listOf(
             "Deep Reading",
@@ -276,6 +286,28 @@ class FlowAppPreferences(context: Context) {
         prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
     }
 
+    fun getTimerPalette(): com.example.ui.theme.FlowTimerPalette {
+        val saved = prefs.getString(KEY_TIMER_PALETTE, com.example.ui.theme.FlowTimerPalette.SOLAR_AMBER.name)
+            ?: com.example.ui.theme.FlowTimerPalette.SOLAR_AMBER.name
+        return try {
+            com.example.ui.theme.FlowTimerPalette.valueOf(saved)
+        } catch (e: Exception) {
+            com.example.ui.theme.FlowTimerPalette.SOLAR_AMBER
+        }
+    }
+
+    fun saveTimerPalette(palette: com.example.ui.theme.FlowTimerPalette) {
+        prefs.edit().putString(KEY_TIMER_PALETTE, palette.name).apply()
+    }
+
+    fun isIntensityShiftingEnabled(): Boolean {
+        return prefs.getBoolean(KEY_INTENSITY_SHIFTING, true)
+    }
+
+    fun saveIntensityShiftingEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_INTENSITY_SHIFTING, enabled).apply()
+    }
+
     fun getHapticFeedbackEnabled(): Boolean {
         return prefs.getBoolean(KEY_HAPTIC_FEEDBACK, true)
     }
@@ -297,5 +329,53 @@ class FlowAppPreferences(context: Context) {
 
     fun saveDailyIntention(intention: String) {
         prefs.edit().putString(KEY_DAILY_INTENTION, intention).apply()
+    }
+
+    // Daily Focus Reminder Settings
+    fun isFocusReminderEnabled(): Boolean {
+        return prefs.getBoolean(KEY_FOCUS_REMINDER_ENABLED, true)
+    }
+
+    fun saveFocusReminderEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FOCUS_REMINDER_ENABLED, enabled).apply()
+    }
+
+    fun getFocusReminderHour(): Int {
+        return prefs.getInt(KEY_FOCUS_REMINDER_HOUR, 9) // Default 9:00 AM
+    }
+
+    fun getFocusReminderMinute(): Int {
+        return prefs.getInt(KEY_FOCUS_REMINDER_MINUTE, 0)
+    }
+
+    fun saveFocusReminderTime(hour: Int, minute: Int) {
+        prefs.edit()
+            .putInt(KEY_FOCUS_REMINDER_HOUR, hour)
+            .putInt(KEY_FOCUS_REMINDER_MINUTE, minute)
+            .apply()
+    }
+
+    // Daily Reflection Reminder Settings
+    fun isReflectionReminderEnabled(): Boolean {
+        return prefs.getBoolean(KEY_REFLECTION_REMINDER_ENABLED, true)
+    }
+
+    fun saveReflectionReminderEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_REFLECTION_REMINDER_ENABLED, enabled).apply()
+    }
+
+    fun getReflectionReminderHour(): Int {
+        return prefs.getInt(KEY_REFLECTION_REMINDER_HOUR, 20) // Default 8:30 PM (20:30)
+    }
+
+    fun getReflectionReminderMinute(): Int {
+        return prefs.getInt(KEY_REFLECTION_REMINDER_MINUTE, 30)
+    }
+
+    fun saveReflectionReminderTime(hour: Int, minute: Int) {
+        prefs.edit()
+            .putInt(KEY_REFLECTION_REMINDER_HOUR, hour)
+            .putInt(KEY_REFLECTION_REMINDER_MINUTE, minute)
+            .apply()
     }
 }

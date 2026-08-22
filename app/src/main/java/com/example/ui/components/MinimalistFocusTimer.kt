@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.EaseInOutSine
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -32,6 +33,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.ColorLens
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,7 +51,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -65,9 +67,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.FlowIntensityColorEngine
+import com.example.ui.theme.FlowTimerPalette
 
 /**
  * Minimalist Focus Timer Component featuring:
+ * - Dynamic color palette shifting based on focus intensity
  * - High precision circular progress bar with animated smooth sweep
  * - Pulsing central ambient core
  * - Customizable interval quick presets & fine-grained duration slider
@@ -82,16 +87,34 @@ fun MinimalistFocusTimer(
     onReset: () -> Unit,
     onSelectInterval: (minutes: Int) -> Unit,
     modifier: Modifier = Modifier,
+    palette: FlowTimerPalette = FlowTimerPalette.SOLAR_AMBER,
+    focusIntensity: Float = 0.5f,
+    onOpenThemePicker: (() -> Unit)? = null,
     presetIntervals: List<Int> = listOf(5, 10, 15, 25, 45, 60, 90, 120)
 ) {
     val haptic = LocalHapticFeedback.current
     val ZenBlack = MaterialTheme.colorScheme.background
-    val ZenAmber = MaterialTheme.colorScheme.primary
-    val ZenAmberDim = MaterialTheme.colorScheme.tertiary
     val ZenTextPrimary = MaterialTheme.colorScheme.onSurface
     val ZenTextSecondary = MaterialTheme.colorScheme.onSurfaceVariant
     val ZenStoneDark = MaterialTheme.colorScheme.surface
     val ZenStoneGrey = MaterialTheme.colorScheme.surfaceVariant
+
+    // Dynamic focus intensity colors
+    val rawDynamicAccent = FlowIntensityColorEngine.calculateIntensityColor(palette, focusIntensity)
+    val dynamicAccent by animateColorAsState(
+        targetValue = rawDynamicAccent,
+        animationSpec = tween(durationMillis = 800, easing = EaseInOutSine),
+        label = "DynamicTimerAccent"
+    )
+
+    val rawGlowColor = FlowIntensityColorEngine.getAmbientGlowColor(palette, focusIntensity)
+    val dynamicGlowColor by animateColorAsState(
+        targetValue = rawGlowColor,
+        animationSpec = tween(durationMillis = 800, easing = EaseInOutSine),
+        label = "DynamicGlowColor"
+    )
+
+    val arcGradientColors = FlowIntensityColorEngine.getProgressArcGradient(palette, focusIntensity)
 
     var showCustomIntervalSlider by remember { mutableStateOf(false) }
 
@@ -144,7 +167,7 @@ fun MinimalistFocusTimer(
                 .testTag("circular_focus_timer"),
             contentAlignment = Alignment.Center
         ) {
-            // Ambient Outer Glow (Smooth Canvas Radial Gradient - no square bounds!)
+            // Ambient Outer Glow (Smooth Canvas Radial Gradient - dynamic with intensity)
             if (isRunning) {
                 Canvas(
                     modifier = Modifier
@@ -156,8 +179,8 @@ fun MinimalistFocusTimer(
                     drawCircle(
                         brush = Brush.radialGradient(
                             colorStops = arrayOf(
-                                0.0f to ZenAmber.copy(alpha = 0.25f),
-                                0.6f to ZenAmberDim.copy(alpha = 0.12f),
+                                0.0f to dynamicGlowColor,
+                                0.5f to dynamicGlowColor.copy(alpha = dynamicGlowColor.alpha * 0.5f),
                                 1.0f to Color.Transparent
                             ),
                             center = center,
@@ -183,11 +206,11 @@ fun MinimalistFocusTimer(
                     style = Stroke(width = strokeWidth)
                 )
 
-                // Active Elapsed Progress Arc (360 -> 0 degrees clockwise)
+                // Active Elapsed Progress Arc (Clockwise sweep with dynamic intensity palette)
                 val sweepAngle = animatedProgress * 360f
                 drawArc(
                     brush = Brush.sweepGradient(
-                        colors = listOf(ZenAmber, ZenAmberDim, ZenAmber)
+                        colors = arcGradientColors
                     ),
                     startAngle = -90f,
                     sweepAngle = sweepAngle,
@@ -208,7 +231,7 @@ fun MinimalistFocusTimer(
                     text = if (isRunning) "FLOW IN PROGRESS" else "PAUSED",
                     style = MaterialTheme.typography.labelSmall.copy(
                         letterSpacing = 2.sp,
-                        color = if (isRunning) ZenAmber else ZenTextSecondary,
+                        color = if (isRunning) dynamicAccent else ZenTextSecondary,
                         fontWeight = FontWeight.SemiBold
                     )
                 )
@@ -259,7 +282,7 @@ fun MinimalistFocusTimer(
                         },
                         modifier = Modifier
                             .size(52.dp)
-                            .background(ZenAmber, CircleShape)
+                            .background(dynamicAccent, CircleShape)
                             .testTag("play_pause_timer_button")
                     ) {
                         Icon(
@@ -275,7 +298,7 @@ fun MinimalistFocusTimer(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Customizable Intervals Section
+        // Customizable Intervals Section & Quick Theme Switcher
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = ZenStoneDark,
@@ -295,11 +318,11 @@ fun MinimalistFocusTimer(
                         Icon(
                             imageVector = Icons.Outlined.Timer,
                             contentDescription = null,
-                            tint = ZenAmber,
+                            tint = dynamicAccent,
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
-                            text = "Custom Interval: ${totalSeconds / 60} min",
+                            text = "Interval: ${totalSeconds / 60}m",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = ZenTextPrimary
@@ -307,15 +330,34 @@ fun MinimalistFocusTimer(
                         )
                     }
 
-                    TextButton(
-                        onClick = { showCustomIntervalSlider = !showCustomIntervalSlider },
-                        modifier = Modifier.testTag("toggle_custom_interval_button")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(
-                            text = if (showCustomIntervalSlider) "Presets" else "Adjust",
-                            color = ZenAmber,
-                            style = MaterialTheme.typography.labelMedium
-                        )
+                        if (onOpenThemePicker != null) {
+                            IconButton(
+                                onClick = onOpenThemePicker,
+                                modifier = Modifier.size(32.dp).testTag("timer_palette_switcher_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ColorLens,
+                                    contentDescription = "Theme Palette",
+                                    tint = dynamicAccent,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        TextButton(
+                            onClick = { showCustomIntervalSlider = !showCustomIntervalSlider },
+                            modifier = Modifier.testTag("toggle_custom_interval_button")
+                        ) {
+                            Text(
+                                text = if (showCustomIntervalSlider) "Presets" else "Adjust",
+                                color = dynamicAccent,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
                     }
                 }
 
@@ -329,8 +371,8 @@ fun MinimalistFocusTimer(
                             onValueChange = { onSelectInterval(it.toInt()) },
                             valueRange = 1f..180f,
                             colors = SliderDefaults.colors(
-                                thumbColor = ZenAmber,
-                                activeTrackColor = ZenAmber,
+                                thumbColor = dynamicAccent,
+                                activeTrackColor = dynamicAccent,
                                 inactiveTrackColor = ZenStoneGrey
                             ),
                             modifier = Modifier.testTag("custom_interval_slider")
@@ -360,7 +402,7 @@ fun MinimalistFocusTimer(
                                     .height(38.dp)
                                     .widthIn(min = 50.dp)
                                     .clip(RoundedCornerShape(19.dp))
-                                    .background(if (isSelected) ZenAmber else ZenStoneGrey)
+                                    .background(if (isSelected) dynamicAccent else ZenStoneGrey)
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         onSelectInterval(mins)
@@ -384,3 +426,4 @@ fun MinimalistFocusTimer(
         }
     }
 }
+

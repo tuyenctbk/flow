@@ -2,6 +2,8 @@ package com.example.ui.screens
 
 import com.example.ui.components.BreathPacer
 import com.example.ui.components.MinimalistFocusTimer
+import com.example.ui.components.FlowTimerThemePicker
+import com.example.ui.components.FlowIdleNudgeBanner
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -145,9 +147,17 @@ fun IdleSetupView(viewModel: FlowViewModel) {
     var showCustomSlider by remember { mutableStateOf(false) }
     var showBreathingOverlay by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showReminderDialog by remember { mutableStateOf(false) }
 
     if (showSettingsDialog) {
         FlowSettingsDialog(viewModel = viewModel, onDismissRequest = { showSettingsDialog = false })
+    }
+
+    if (showReminderDialog) {
+        com.example.ui.components.DailyReminderDialog(
+            viewModel = viewModel,
+            onDismissRequest = { showReminderDialog = false }
+        )
     }
 
     Column(
@@ -241,20 +251,45 @@ fun IdleSetupView(viewModel: FlowViewModel) {
                 }
             }
 
-            IconButton(
-                onClick = { showSettingsDialog = true },
+            Row(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .testTag("settings_button")
+                    .align(Alignment.TopEnd),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Settings,
-                    contentDescription = "Settings",
-                    tint = ZenTextSecondary,
-                    modifier = Modifier.size(24.dp)
-                )
+                IconButton(
+                    onClick = { showReminderDialog = true },
+                    modifier = Modifier.testTag("flow_header_reminders_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Notifications,
+                        contentDescription = "Daily Reminders",
+                        tint = ZenAmber,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = { showSettingsDialog = true },
+                    modifier = Modifier.testTag("settings_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Settings,
+                        contentDescription = "Settings",
+                        tint = ZenTextSecondary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
+
+        // 10-Minute Idle State Gentle Visual Cue Nudge
+        FlowIdleNudgeBanner(
+            viewModel = viewModel,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        )
 
         // Daily Intention Field (fades out once they start their first timer)
         AnimatedVisibility(
@@ -500,89 +535,8 @@ fun IdleSetupView(viewModel: FlowViewModel) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Ambient Background Soundscapes
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "AMBIENT FOCUS SOUNDSCAPES",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = ZenAmber,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-                    )
-
-                    IconButton(
-                        onClick = { viewModel.strikeBowl() },
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(ZenStoneGrey, CircleShape)
-                            .testTag("sound_bowl_strike")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.NotificationsActive,
-                            contentDescription = "Strike Bowl",
-                            tint = ZenAmber,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    com.example.data.AmbientSoundProfile.entries.forEach { profile ->
-                        val isSelected = selectedAmbientProfile == profile
-                        val profileIcon = when (profile) {
-                            com.example.data.AmbientSoundProfile.NONE -> Icons.Outlined.VolumeOff
-                            com.example.data.AmbientSoundProfile.RAINFALL -> Icons.Outlined.WaterDrop
-                            com.example.data.AmbientSoundProfile.WHITE_NOISE -> Icons.Outlined.Radio
-                            com.example.data.AmbientSoundProfile.CAFE_ATMOSPHERE -> Icons.Outlined.LocalCafe
-                            com.example.data.AmbientSoundProfile.GAMMA_40HZ -> Icons.Outlined.Psychology
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isSelected) ZenAmber.copy(alpha = 0.1f) else ZenStoneDark)
-                                .border(1.dp, if (isSelected) ZenAmber else ZenStoneGrey, RoundedCornerShape(12.dp))
-                                .clickable { viewModel.setAmbientProfile(profile) }
-                                .padding(horizontal = 14.dp, vertical = 8.dp)
-                                .testTag("ambient_sound_chip_${profile.name.lowercase()}"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = profileIcon,
-                                    contentDescription = null,
-                                    tint = if (isSelected) ZenAmber else ZenTextSecondary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    text = profile.displayName,
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        color = if (isSelected) ZenAmber else ZenTextPrimary,
-                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                        fontSize = 12.sp
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            // Ambient Background Soundscapes & Multi-Layer Mixer
+            com.example.ui.components.SoundscapeMixerCard(viewModel = viewModel)
 
         }
 
@@ -1135,6 +1089,11 @@ fun DeepShieldView(viewModel: FlowViewModel) {
     val gammaEnabled by viewModel.gammaEnabled.collectAsState()
     val rainEnabled by viewModel.rainEnabled.collectAsState()
     val intent by viewModel.currentIntent.collectAsState()
+    val timerPalette by viewModel.timerPalette.collectAsState()
+    val intensityShiftingEnabled by viewModel.intensityShiftingEnabled.collectAsState()
+
+    var showThemePicker by remember { mutableStateOf(false) }
+    val focusIntensity = if (intensityShiftingEnabled) viewModel.calculateFocusIntensity() else 0.5f
 
     Column(
         modifier = Modifier
@@ -1156,7 +1115,7 @@ fun DeepShieldView(viewModel: FlowViewModel) {
             Icon(
                 imageVector = Icons.Outlined.Spa,
                 contentDescription = "Intent",
-                tint = ZenAmber,
+                tint = timerPalette.baseColor,
                 modifier = Modifier.size(16.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -1172,7 +1131,7 @@ fun DeepShieldView(viewModel: FlowViewModel) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Minimalist Focus Timer Component (Circular Progress Bar & Customizable Intervals)
+        // Minimalist Focus Timer Component with dynamic palette and intensity shifting
         MinimalistFocusTimer(
             totalSeconds = totalMinutes * 60,
             remainingSeconds = remainingSeconds,
@@ -1180,9 +1139,25 @@ fun DeepShieldView(viewModel: FlowViewModel) {
             onTogglePlayPause = { viewModel.toggleTimerPlayPause() },
             onReset = { viewModel.resetTimer() },
             onSelectInterval = { mins -> viewModel.updateFocusInterval(mins) },
+            palette = timerPalette,
+            focusIntensity = focusIntensity,
+            onOpenThemePicker = { showThemePicker = !showThemePicker },
             presetIntervals = listOf(5, 10, 15, 25, 45, 60, 90, 120),
             modifier = Modifier.fillMaxWidth()
         )
+
+        // Expandable Theme Picker inside session
+        AnimatedVisibility(
+            visible = showThemePicker,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            FlowTimerThemePicker(
+                viewModel = viewModel,
+                onDismiss = { showThemePicker = false },
+                modifier = Modifier.padding(vertical = 12.dp)
+            )
+        }
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -1828,6 +1803,73 @@ fun FlowSettingsDialog(
                             uncheckedTrackColor = ZenBlack
                         )
                     )
+                }
+
+                Divider(color = ZenStoneGrey, thickness = 1.dp)
+
+                // Daily Mindfulness & Reflection Reminders
+                com.example.ui.components.DailyRitualReminderCard(
+                    viewModel = viewModel,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Divider(color = ZenStoneGrey, thickness = 1.dp)
+
+                // Flow Timer Dynamic Palette Picker
+                com.example.ui.components.FlowTimerThemePicker(
+                    viewModel = viewModel,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Divider(color = ZenStoneGrey, thickness = 1.dp)
+
+                // Cloud Firestore Database Synchronization
+                com.example.ui.components.FirestoreSyncCard(
+                    viewModel = viewModel,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Divider(color = ZenStoneGrey, thickness = 1.dp)
+
+                // 10-Minute Idle State Detector Test / Settings
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "10-MIN IDLE STATE DETECTOR",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = ZenTextSecondary,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                        )
+                        Text(
+                            text = "Nudges with a gentle breathing visual cue after 10m stillness",
+                            style = MaterialTheme.typography.bodySmall.copy(color = ZenTextSecondary),
+                            lineHeight = 14.sp
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.triggerTestIdleNudge()
+                            onDismissRequest()
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, ZenAmber.copy(alpha = 0.6f)),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.testTag("simulate_idle_nudge_btn")
+                    ) {
+                        Text(
+                            text = "Test Cue",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = ZenAmber,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
                 }
 
                 Divider(color = ZenStoneGrey, thickness = 1.dp)

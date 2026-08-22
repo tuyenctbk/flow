@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="start_flow"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_flow"
+        android:shortcutShortLabel="@string/shortcut_start_flow_short"
+        android:shortcutLongLabel="@string/shortcut_start_flow_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.example.MainActivity">
+            <extra
+                android:name="com.example.ACTION_SHORTCUT"
+                android:value="start_flow" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="add_reflection"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_reflection"
+        android:shortcutShortLabel="@string/shortcut_add_reflection_short"
+        android:shortcutLongLabel="@string/shortcut_add_reflection_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.example.MainActivity">
+            <extra
+                android:name="com.example.ACTION_SHORTCUT"
+                android:value="add_reflection" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="open_stats"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_stats"
+        android:shortcutShortLabel="@string/shortcut_open_stats_short"
+        android:shortcutLongLabel="@string/shortcut_open_stats_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.example.MainActivity">
+            <extra
+                android:name="com.example.ACTION_SHORTCUT"
+                android:value="open_stats" />
+        </intent>
+    </shortcut>
+</shortcuts>

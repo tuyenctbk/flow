@@ -76,4 +76,15 @@
     <string name="reminder_6">Observe the weight of your hands resting in your lap.</string>
     <string name="reminder_7">Gaze gently at an object near you. Appreciate its simple existence without naming it.</string>
     <string name="reminder_8">Touch your chest. Feel the constant, quiet rhythm of your heart.</string>
+
+    <!-- App Widget -->
+    <string name="widget_description">Quick access to initiate focus rituals and view daily mindful stats.</string>
+
+    <!-- App Shortcuts -->
+    <string name="shortcut_start_flow_short">Start Flow</string>
+    <string name="shortcut_start_flow_long">Start Flow Focus</string>
+    <string name="shortcut_add_reflection_short">Add Reflection</string>
+    <string name="shortcut_add_reflection_long">Add Journal Reflection</string>
+    <string name="shortcut_open_stats_short">Open Stats</string>
+    <string name="shortcut_open_stats_long">Open Mirror Stats</string>
 </resources>

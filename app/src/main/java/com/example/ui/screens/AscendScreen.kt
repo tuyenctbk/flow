@@ -13,10 +13,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.GraphicEq
-import androidx.compose.material.icons.outlined.SelfImprovement
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.Spa
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +34,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.components.FlowTimerThemePicker
+import com.example.ui.components.FirestoreSyncCard
 import com.example.ui.theme.*
 import com.example.viewmodel.FlowViewModel
 import kotlinx.coroutines.delay
@@ -58,6 +59,14 @@ fun AscendScreen(
     val ZenMossGreen = MaterialTheme.colorScheme.secondary
 
     val currentReminderId by viewModel.currentReminderId.collectAsState()
+    var showReminderDialog by remember { mutableStateOf(false) }
+
+    if (showReminderDialog) {
+        com.example.ui.components.DailyReminderDialog(
+            viewModel = viewModel,
+            onDismissRequest = { showReminderDialog = false }
+        )
+    }
 
     LazyColumn(
         modifier = modifier
@@ -69,21 +78,63 @@ fun AscendScreen(
     ) {
         // Title block
         item {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = stringResource(R.string.ascend_title),
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontFamily = FontFamily.Serif,
-                        letterSpacing = 4.sp,
-                        color = ZenAmber
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.ascend_title),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontFamily = FontFamily.Serif,
+                            letterSpacing = 4.sp,
+                            color = ZenAmber
+                        )
                     )
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.ascend_subtitle),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = ZenTextSecondary)
-                )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.ascend_subtitle),
+                        style = MaterialTheme.typography.bodyMedium.copy(color = ZenTextSecondary)
+                    )
+                }
+
+                IconButton(
+                    onClick = { showReminderDialog = true },
+                    modifier = Modifier.size(36.dp).testTag("ascend_reminders_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Notifications,
+                        contentDescription = "Daily Reminders",
+                        tint = ZenAmber,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
+        }
+
+        // Daily Consistency & Reminders Card
+        item {
+            com.example.ui.components.DailyRitualReminderCard(
+                viewModel = viewModel,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        // Flow Timer Palette & Dynamic Intensity Color Switcher
+        item {
+            FlowTimerThemePicker(
+                viewModel = viewModel,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        // Cross-Device Cloud Firestore Sync
+        item {
+            FirestoreSyncCard(
+                viewModel = viewModel,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
         // STAGE 2: Everyday Presence (Trait Flow)

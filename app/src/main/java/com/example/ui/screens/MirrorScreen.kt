@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.FlowSession
 import com.example.data.UserReflection
+import com.example.ui.components.FirestoreSyncCard
 import com.example.viewmodel.FlowViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -60,6 +61,23 @@ fun MirrorScreen(
     var selectedTab by remember { mutableStateOf(MirrorTab.CHRONICLES) }
     var showClearConfirm by remember { mutableStateOf(false) }
     var showNewReflectionDialog by remember { mutableStateOf(false) }
+    var showReminderDialog by remember { mutableStateOf(false) }
+
+    val triggerReflectionFromIntent by viewModel.triggerNewReflectionDialog.collectAsState()
+    LaunchedEffect(triggerReflectionFromIntent) {
+        if (triggerReflectionFromIntent) {
+            selectedTab = MirrorTab.JOURNAL
+            showNewReflectionDialog = true
+            viewModel.clearTriggerNewReflectionDialog()
+        }
+    }
+
+    if (showReminderDialog) {
+        com.example.ui.components.DailyReminderDialog(
+            viewModel = viewModel,
+            onDismissRequest = { showReminderDialog = false }
+        )
+    }
 
     val totalTimeMin = remember(sessions) {
         sessions.sumOf { it.durationSeconds } / 60
@@ -123,7 +141,21 @@ fun MirrorScreen(
                             )
                         }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                onClick = { showReminderDialog = true },
+                                modifier = Modifier.size(36.dp).testTag("mirror_reminders_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Notifications,
+                                    contentDescription = "Daily Reminders",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
                             OutlinedButton(
                                 onClick = { viewModel.exportSessionsShareIntent(context, "CSV") },
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
@@ -229,6 +261,11 @@ fun MirrorScreen(
                         }
                     }
                 }
+            }
+
+            // Cloud Firestore Sync Management Card
+            item {
+                FirestoreSyncCard(viewModel = viewModel)
             }
 
             // Tab Content

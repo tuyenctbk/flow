@@ -13,6 +13,7 @@ import com.example.data.UserReflection
 import com.example.data.SmartPromptInfo
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +24,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.example.data.AmbientSoundProfile
+import com.example.data.AuthenticatedUser
+import com.example.data.FirestoreSyncManager
+import com.example.data.SyncState
+import com.example.data.SyncStatus
+import com.example.ui.theme.FlowTimerPalette
+import com.example.ui.util.FlowHapticManager
 import com.example.R
 
 enum class FocusState {
@@ -49,6 +56,10 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FlowRepository(db.flowSessionDao(), db.userReflectionDao())
     val appPreferences = FlowAppPreferences(application)
     val firebaseIntegration = FirebaseIntegration(application)
+    val firestoreSyncManager = FirestoreSyncManager(application)
+
+    val syncState: StateFlow<SyncState> = firestoreSyncManager.syncState
+    val currentUser: StateFlow<AuthenticatedUser?> = firestoreSyncManager.currentUser
 
     val communityStats = firebaseIntegration.communityStats
     val userAuth = firebaseIntegration.userAuth
@@ -153,6 +164,70 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
         appPreferences.saveThemeMode(mode)
     }
 
+    // Flow Timer Palette & Intensity Shifting State
+    private val _timerPalette = MutableStateFlow(appPreferences.getTimerPalette())
+    val timerPalette: StateFlow<FlowTimerPalette> = _timerPalette.asStateFlow()
+
+    private val _intensityShiftingEnabled = MutableStateFlow(appPreferences.isIntensityShiftingEnabled())
+    val intensityShiftingEnabled: StateFlow<Boolean> = _intensityShiftingEnabled.asStateFlow()
+
+    fun setTimerPalette(palette: FlowTimerPalette) {
+        _timerPalette.value = palette
+        appPreferences.saveTimerPalette(palette)
+    }
+
+    fun setIntensityShiftingEnabled(enabled: Boolean) {
+        _intensityShiftingEnabled.value = enabled
+        appPreferences.saveIntensityShiftingEnabled(enabled)
+    }
+
+    // Compute current Focus Intensity (0.0f - 1.0f)
+    fun calculateFocusIntensity(): Float {
+        if (!_intensityShiftingEnabled.value) return 0.5f
+        val totalSecs = _selectedDurationMinutes.value * 60
+        if (totalSecs <= 0) return 0f
+        val elapsed = (totalSecs - _remainingSeconds.value).toFloat()
+        val elapsedRatio = (elapsed / totalSecs.toFloat()).coerceIn(0f, 1f)
+        
+        // Intensity curve: starts calm (0.1), ascends progressively towards peak (1.0)
+        val calibrationBonus = (_challengeLevel.value + _skillLevel.value - 2) / 8f * 0.2f
+        return (elapsedRatio * 0.8f + 0.1f + calibrationBonus).coerceIn(0.1f, 1.0f)
+    }
+
+    // Cloud Firestore Sync Actions
+    fun syncWithFirestore() {
+        viewModelScope.launch {
+            firestoreSyncManager.performTwoWaySync(
+                localSessions = allSessions.value,
+                localReflections = allReflections.value,
+                onSessionPulled = { session ->
+                    repository.insertSession(session)
+                },
+                onReflectionPulled = { reflection ->
+                    repository.insertReflection(reflection)
+                }
+            )
+        }
+    }
+
+    fun signInWithGoogle(activityContext: android.content.Context) {
+        viewModelScope.launch {
+            val result = firestoreSyncManager.signInWithGoogle(activityContext)
+            if (result.isSuccess) {
+                syncWithFirestore()
+            }
+        }
+    }
+
+    fun signInQuick(displayName: String = "Zen Practitioner", email: String = "zen@mindfulflow.app") {
+        firestoreSyncManager.signInQuick(displayName, email)
+        syncWithFirestore()
+    }
+
+    fun signOutFromCloud() {
+        firestoreSyncManager.signOut()
+    }
+
     fun getEffectiveThemeMode(): FlowThemeMode {
         return when (_themeMode.value) {
             FlowThemeMode.CIRCADIAN -> {
@@ -165,6 +240,30 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
             }
             else -> _themeMode.value
         }
+    }
+
+    // Navigation & Deep link triggers
+    private val _requestedTab = MutableStateFlow<Int?>(null)
+    val requestedTab = _requestedTab.asStateFlow()
+
+    private val _triggerNewReflectionDialog = MutableStateFlow(false)
+    val triggerNewReflectionDialog = _triggerNewReflectionDialog.asStateFlow()
+
+    fun selectTab(tab: Int) {
+        _requestedTab.value = tab
+    }
+
+    fun clearRequestedTab() {
+        _requestedTab.value = null
+    }
+
+    fun requestOpenReflectionDialog() {
+        _requestedTab.value = 1
+        _triggerNewReflectionDialog.value = true
+    }
+
+    fun clearTriggerNewReflectionDialog() {
+        _triggerNewReflectionDialog.value = false
     }
 
     // Current Navigation/Focus State
@@ -193,18 +292,63 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
     private val _skillLevel = MutableStateFlow(3)
     val skillLevel = _skillLevel.asStateFlow()
 
-    // Sound Synthesizer
+    // Sound Synthesizer & Multi-layer Soundscape Mixer
     val synthesizer = FlowAudioSynthesizer()
 
-    private val _selectedAmbientProfile = MutableStateFlow(AmbientSoundProfile.NONE)
+    private val _selectedAmbientProfile = MutableStateFlow(AmbientSoundProfile.BROWN_NOISE)
     val selectedAmbientProfile = _selectedAmbientProfile.asStateFlow()
+
+    private val _binauralLayerVol = MutableStateFlow(0.35f)
+    val binauralLayerVol = _binauralLayerVol.asStateFlow()
+
+    private val _noiseLayerVol = MutableStateFlow(0.40f)
+    val noiseLayerVol = _noiseLayerVol.asStateFlow()
+
+    private val _singingBowlVol = MutableStateFlow(0.60f)
+    val singingBowlVol = _singingBowlVol.asStateFlow()
+
+    private val _masterVolume = MutableStateFlow(0.70f)
+    val masterVolume = _masterVolume.asStateFlow()
+
+    private val _binauralMode = MutableStateFlow(40.0) // 40Hz Gamma default
+    val binauralMode = _binauralMode.asStateFlow()
+
+    val isSoundscapeTransitioning: StateFlow<Boolean> = synthesizer.isTransitioning
+    val soundscapeTransitioningTo: StateFlow<AmbientSoundProfile?> = synthesizer.transitioningTo
 
     fun setAmbientProfile(profile: AmbientSoundProfile) {
         _selectedAmbientProfile.value = profile
-        synthesizer.activeProfile = profile
-        if (profile != AmbientSoundProfile.NONE) {
+        synthesizer.transitionToPreset(profile)
+        recordUserActivity()
+    }
+
+    fun setBinauralLayerVol(volume: Float) {
+        _binauralLayerVol.value = volume
+        synthesizer.binauralBeatVolume = volume
+        if (volume > 0.01f && synthesizer.activeProfile != AmbientSoundProfile.NONE) {
             synthesizer.start()
         }
+        recordUserActivity()
+    }
+
+    fun setNoiseLayerVol(volume: Float) {
+        _noiseLayerVol.value = volume
+        synthesizer.noiseTextureVolume = volume
+    }
+
+    fun setSingingBowlVol(volume: Float) {
+        _singingBowlVol.value = volume
+        synthesizer.singingBowlVolume = volume
+    }
+
+    fun setMasterVolume(volume: Float) {
+        _masterVolume.value = volume
+        synthesizer.masterVolume = volume
+    }
+
+    fun setBinauralFrequency(freqHz: Double) {
+        _binauralMode.value = freqHz
+        synthesizer.binauralBeatFreq = freqHz
     }
 
     // Sound Layer toggles
@@ -220,6 +364,25 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
     // Breathing Threshold Ritual State
     private val _holdingCircle = MutableStateFlow(false)
     val holdingCircle = _holdingCircle.asStateFlow()
+
+    // Daily Reminder State Management
+    private val _isFocusReminderEnabled = MutableStateFlow(appPreferences.isFocusReminderEnabled())
+    val isFocusReminderEnabled = _isFocusReminderEnabled.asStateFlow()
+
+    private val _focusReminderHour = MutableStateFlow(appPreferences.getFocusReminderHour())
+    val focusReminderHour = _focusReminderHour.asStateFlow()
+
+    private val _focusReminderMinute = MutableStateFlow(appPreferences.getFocusReminderMinute())
+    val focusReminderMinute = _focusReminderMinute.asStateFlow()
+
+    private val _isReflectionReminderEnabled = MutableStateFlow(appPreferences.isReflectionReminderEnabled())
+    val isReflectionReminderEnabled = _isReflectionReminderEnabled.asStateFlow()
+
+    private val _reflectionReminderHour = MutableStateFlow(appPreferences.getReflectionReminderHour())
+    val reflectionReminderHour = _reflectionReminderHour.asStateFlow()
+
+    private val _reflectionReminderMinute = MutableStateFlow(appPreferences.getReflectionReminderMinute())
+    val reflectionReminderMinute = _reflectionReminderMinute.asStateFlow()
 
     private val _breathPhase = MutableStateFlow(BreathPhase.IN)
     val breathPhase = _breathPhase.asStateFlow()
@@ -238,6 +401,16 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentReminderId = MutableStateFlow(R.string.reminder_1)
     val currentReminderId = _currentReminderId.asStateFlow()
 
+    // 10-Minute (600s) Idle State Detector
+    private val _idleSeconds = MutableStateFlow(0)
+    val idleSeconds = _idleSeconds.asStateFlow()
+
+    private val _isIdleNudgeActive = MutableStateFlow(false)
+    val isIdleNudgeActive = _isIdleNudgeActive.asStateFlow()
+
+    private val _isIdleNudgeDismissed = MutableStateFlow(false)
+    val isIdleNudgeDismissed = _isIdleNudgeDismissed.asStateFlow()
+
     private val reminders = listOf(
         R.string.reminder_1,
         R.string.reminder_2,
@@ -252,12 +425,56 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
     init {
         synthesizer.start()
         updateSynthVolumes()
+        com.example.service.DailyReminderScheduler.scheduleAllReminders(getApplication())
+
+        // Idle Detector 1-second loop
+        viewModelScope.launch {
+            while (isActive) {
+                kotlinx.coroutines.delay(1000L)
+                if (_focusState.value == FocusState.NONE && !_isTimerRunning.value) {
+                    _idleSeconds.value += 1
+                    if (_idleSeconds.value >= 600 && !_isIdleNudgeDismissed.value) {
+                        _isIdleNudgeActive.value = true
+                    }
+                } else {
+                    _idleSeconds.value = 0
+                    _isIdleNudgeActive.value = false
+                    _isIdleNudgeDismissed.value = false
+                }
+            }
+        }
 
         viewModelScope.launch {
             com.example.service.FlowServiceController.cancelSessionRequests.collect {
                 cancelSessionFlow()
             }
         }
+    }
+
+    fun recordUserActivity() {
+        _idleSeconds.value = 0
+        if (_isIdleNudgeActive.value) {
+            _isIdleNudgeActive.value = false
+        }
+    }
+
+    fun dismissIdleNudge() {
+        _isIdleNudgeActive.value = false
+        _isIdleNudgeDismissed.value = true
+        _idleSeconds.value = 0
+    }
+
+    fun triggerTestIdleNudge() {
+        _idleSeconds.value = 600
+        _isIdleNudgeDismissed.value = false
+        _isIdleNudgeActive.value = true
+    }
+
+    fun startFlowFromIdleNudge() {
+        _isIdleNudgeActive.value = false
+        _isIdleNudgeDismissed.value = false
+        _idleSeconds.value = 0
+        startCalibration()
     }
 
     fun setIntent(intent: String) {
@@ -292,20 +509,22 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun updateSynthVolumes() {
-        synthesizer.gammaVolume = if (_gammaEnabled.value) 1.0f else 0.0f
-        synthesizer.rainVolume = if (_rainEnabled.value) 0.8f else 0.0f
-        synthesizer.bowlVolume = if (_bowlEnabled.value) 1.0f else 0.0f
+        synthesizer.binauralBeatVolume = if (_gammaEnabled.value) _binauralLayerVol.value else 0.0f
+        synthesizer.noiseTextureVolume = if (_rainEnabled.value) _noiseLayerVol.value else 0.0f
+        synthesizer.singingBowlVolume = if (_bowlEnabled.value) _singingBowlVol.value else 0.0f
     }
 
     // Start Focus Session Flow
     fun startCalibration() {
         _firstTimerStarted.value = true
         _focusState.value = FocusState.COMPASS
+        FlowHapticManager.performClickHaptic(getApplication(), _hapticFeedbackEnabled.value)
     }
 
     fun proceedToRitual() {
         _focusState.value = FocusState.RITUAL
         resetBreathing()
+        FlowHapticManager.performClickHaptic(getApplication(), _hapticFeedbackEnabled.value)
     }
 
     fun cancelSessionFlow() {
@@ -314,6 +533,7 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
         com.example.service.FlowForegroundService.stopService(getApplication())
         _focusState.value = FocusState.NONE
         appPreferences.refreshSuggestedIntents()
+        FlowHapticManager.performClickHaptic(getApplication(), _hapticFeedbackEnabled.value)
     }
 
     // Breathing Gesture Logic
@@ -334,18 +554,22 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
                     when (_breathPhase.value) {
                         BreathPhase.IN -> {
                             _breathPhase.value = BreathPhase.HOLD
+                            FlowHapticManager.performBreathPhaseHaptic(getApplication(), _hapticFeedbackEnabled.value)
                         }
                         BreathPhase.HOLD -> {
                             _breathPhase.value = BreathPhase.OUT
+                            FlowHapticManager.performBreathPhaseHaptic(getApplication(), _hapticFeedbackEnabled.value)
                         }
                         BreathPhase.OUT -> {
                             if (_breathCount.value < 3) {
                                 _breathCount.value += 1
                                 _breathPhase.value = BreathPhase.IN
+                                FlowHapticManager.performBreathPhaseHaptic(getApplication(), _hapticFeedbackEnabled.value)
                                 synthesizer.strikeSingingBowl() // Accentuate the turn
                             } else {
                                 // Completed 3 breaths!
                                 _breathPhase.value = BreathPhase.COMPLETE
+                                FlowHapticManager.performSessionStartHaptic(getApplication(), _hapticFeedbackEnabled.value)
                                 delay(200)
                                 enterDeepShield()
                                 break
@@ -392,6 +616,7 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
         _focusState.value = FocusState.DEEP_SHIELD
         _remainingSeconds.value = _selectedDurationMinutes.value * 60
         _isTimerRunning.value = true
+        FlowHapticManager.performSessionStartHaptic(getApplication(), _hapticFeedbackEnabled.value)
         synthesizer.strikeSingingBowl() // Strike bowl at session start!
         com.example.service.FlowForegroundService.startService(
             getApplication(),
@@ -419,10 +644,12 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
                 // Strike bowl at regular intervals to keep the mind grounded (e.g., every 5 minutes or 1 minute before completion)
                 if (_remainingSeconds.value == 60) {
                     synthesizer.strikeSingingBowl() // 1 minute warning
+                    FlowHapticManager.performBreathPhaseHaptic(getApplication(), _hapticFeedbackEnabled.value)
                 }
             }
             // Session complete!
             _isTimerRunning.value = false
+            FlowHapticManager.performSessionCompleteHaptic(getApplication(), _hapticFeedbackEnabled.value)
             synthesizer.strikeSingingBowl() // Masterful finishing strike
             val sessionName = _currentIntent.value.ifBlank { "Deep Focus" }
             com.example.service.FlowForegroundService.sendSessionCompleteNotification(getApplication(), sessionName)
@@ -434,23 +661,23 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun fadeOutAmbientSounds() {
         val originalVolume = synthesizer.masterVolume
-        val originalGamma = synthesizer.gammaVolume
-        val originalRain = synthesizer.rainVolume
+        val originalBinaural = synthesizer.binauralBeatVolume
+        val originalNoise = synthesizer.noiseTextureVolume
         val steps = 25
         val delayMs = 100L // 2.5 seconds total fade-out
         for (i in 1..steps) {
             val factor = (steps - i).toFloat() / steps
             synthesizer.masterVolume = originalVolume * factor
-            synthesizer.gammaVolume = originalGamma * factor
-            synthesizer.rainVolume = originalRain * factor
+            synthesizer.binauralBeatVolume = originalBinaural * factor
+            synthesizer.noiseTextureVolume = originalNoise * factor
             delay(delayMs)
         }
         // Completely stop ambient and restore original settings for next time
         synthesizer.activeProfile = com.example.data.AmbientSoundProfile.NONE
         _selectedAmbientProfile.value = com.example.data.AmbientSoundProfile.NONE
         synthesizer.masterVolume = originalVolume
-        synthesizer.gammaVolume = originalGamma
-        synthesizer.rainVolume = originalRain
+        synthesizer.binauralBeatVolume = originalBinaural
+        synthesizer.noiseTextureVolume = originalNoise
     }
 
     private fun stopFocusTimer() {
@@ -498,6 +725,10 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
                 notes = notes
             )
             val sessionId = repository.insertSession(session).toInt()
+            val savedSessionWithId = session.copy(id = sessionId)
+
+            // Direct sync to Cloud Firestore
+            firestoreSyncManager.uploadSingleSession(savedSessionWithId)
 
             // If notes, friction, or breakthrough was provided, store a linked UserReflection automatically
             if (notes.isNotBlank() || frictionNotes.isNotBlank() || breakthroughNotes.isNotBlank()) {
@@ -510,7 +741,8 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
                     tags = "Focus, $intentStr",
                     linkedSessionId = sessionId
                 )
-                repository.insertReflection(reflection)
+                val reflectionId = repository.insertReflection(reflection)
+                firestoreSyncManager.uploadSingleReflection(reflection.copy(id = reflectionId))
             }
             
             // Log Firebase Analytics Event for Session Completion
@@ -532,7 +764,9 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
             )
             
             // Clean up states
+            FlowHapticManager.performSessionCompleteHaptic(getApplication(), _hapticFeedbackEnabled.value)
             com.example.service.FlowForegroundService.stopService(getApplication())
+            com.example.widget.FlowQuickWidgetProvider.notifyUpdate(getApplication())
             _currentIntent.value = ""
             _focusState.value = FocusState.NONE
             appPreferences.refreshSuggestedIntents()
@@ -561,7 +795,12 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
                 aiInsight = aiInsight,
                 linkedSessionId = linkedSessionId
             )
-            repository.insertReflection(reflection)
+            val reflectionId = repository.insertReflection(reflection)
+            val savedReflectionWithId = reflection.copy(id = reflectionId)
+            
+            // Sync to Cloud Firestore
+            firestoreSyncManager.uploadSingleReflection(savedReflectionWithId)
+            FlowHapticManager.performClickHaptic(getApplication(), _hapticFeedbackEnabled.value)
             firebaseIntegration.logEvent("reflection_created", mapOf("mood" to moodRating))
         }
     }
@@ -745,6 +984,28 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
                 android.util.Log.e("FlowViewModel", "Export failed", e)
             }
         }
+    }
+
+    fun updateFocusReminder(enabled: Boolean, hour: Int, minute: Int) {
+        appPreferences.saveFocusReminderEnabled(enabled)
+        appPreferences.saveFocusReminderTime(hour, minute)
+        _isFocusReminderEnabled.value = enabled
+        _focusReminderHour.value = hour
+        _focusReminderMinute.value = minute
+        com.example.service.DailyReminderScheduler.scheduleAllReminders(getApplication())
+    }
+
+    fun updateReflectionReminder(enabled: Boolean, hour: Int, minute: Int) {
+        appPreferences.saveReflectionReminderEnabled(enabled)
+        appPreferences.saveReflectionReminderTime(hour, minute)
+        _isReflectionReminderEnabled.value = enabled
+        _reflectionReminderHour.value = hour
+        _reflectionReminderMinute.value = minute
+        com.example.service.DailyReminderScheduler.scheduleAllReminders(getApplication())
+    }
+
+    fun triggerTestNotification(type: String) {
+        com.example.service.DailyReminderScheduler.triggerTestNotification(getApplication(), type)
     }
 
     override fun onCleared() {

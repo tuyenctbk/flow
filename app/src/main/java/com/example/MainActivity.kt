@@ -47,6 +47,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // Setup Dynamic App Shortcuts
+        com.example.util.AppShortcutManager.setupShortcuts(this)
+
+        // Handle Widget, Notification & App Shortcut Intent Extras
+        handleIncomingIntent(intent)
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
@@ -75,11 +81,70 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    private fun handleIncomingIntent(intent: android.content.Intent?) {
+        if (intent == null) return
+
+        // 0. App Shortcuts Action
+        val shortcutAction = intent.getStringExtra(com.example.util.AppShortcutManager.EXTRA_ACTION_SHORTCUT)
+        when (shortcutAction) {
+            com.example.util.AppShortcutManager.SHORTCUT_START_FLOW -> {
+                viewModel.selectTab(0)
+                viewModel.startCalibration()
+            }
+            com.example.util.AppShortcutManager.SHORTCUT_ADD_REFLECTION -> {
+                viewModel.selectTab(1)
+                viewModel.requestOpenReflectionDialog()
+            }
+            com.example.util.AppShortcutManager.SHORTCUT_OPEN_STATS -> {
+                viewModel.selectTab(1)
+            }
+        }
+
+        // 1. Tab navigation
+        val targetTab = intent.getIntExtra(com.example.service.DailyReminderReceiver.EXTRA_NAVIGATE_TAB, -1)
+        if (targetTab != -1) {
+            viewModel.selectTab(targetTab)
+        }
+
+        // 2. Open Reflection Dialog action
+        val openReflection = intent.getBooleanExtra(com.example.service.DailyReminderReceiver.EXTRA_ACTION_OPEN_REFLECTION, false)
+        if (openReflection) {
+            viewModel.requestOpenReflectionDialog()
+        }
+
+        // 3. Quick Focus / Breath Start action
+        val quickDuration = intent.getIntExtra(com.example.widget.FlowQuickWidgetProvider.EXTRA_QUICK_DURATION, -1)
+        val autoStart = intent.getBooleanExtra(com.example.widget.FlowQuickWidgetProvider.EXTRA_AUTO_START, false)
+            || intent.getBooleanExtra(com.example.service.DailyReminderReceiver.EXTRA_ACTION_START_FOCUS, false)
+            || intent.getBooleanExtra(com.example.service.DailyReminderReceiver.EXTRA_ACTION_START_BREATH, false)
+
+        if (quickDuration > 0) {
+            viewModel.setDuration(quickDuration)
+            if (autoStart) {
+                viewModel.startCalibration()
+            }
+        }
+    }
 }
 
 @Composable
 fun MainContent(viewModel: FlowViewModel) {
     var selectedTab by remember { mutableStateOf(0) }
+    val requestedTab by viewModel.requestedTab.collectAsState()
+
+    LaunchedEffect(requestedTab) {
+        requestedTab?.let {
+            selectedTab = it
+            viewModel.clearRequestedTab()
+        }
+    }
+
     val focusState by viewModel.focusState.collectAsState()
 
     // Determine if we should hide bottom navigation (highly immersive during focus rituals)

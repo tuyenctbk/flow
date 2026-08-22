@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="160dp"
+    android:height="160dp"
+    android:viewportWidth="160"
+    android:viewportHeight="160">
+
+    <!-- Ambient Radiance Aura -->
+    <path
+        android:pathData="M 80,80 m -50,0 a 50,50 0 1,1 100,0 a 50,50 0 1,1 -100,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="80"
+                android:centerY="80"
+                android:gradientRadius="50"
+                android:type="radial">
+                <item android:offset="0.0" android:color="#4D81B29A" />
+                <item android:offset="0.7" android:color="#1A52796F" />
+                <item android:offset="1.0" android:color="#00000000" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Masterful Zen Ensō Brush Circle (Gold Gradient) -->
+    <path
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:pathData="M 80,80 m -40,0 a 40,40 0 1,1 80,0 a 40,40 0 1,1 -70,24">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="40"
+                android:startY="40"
+                android:endX="120"
+                android:endY="120"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFD166" />
+                <item android:offset="0.5" android:color="#F4A261" />
+                <item android:offset="1.0" android:color="#E76F51" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Lotus Silhouette - Left Flanking Petal -->
+    <path
+        android:pathData="M 80,72 C 64,77 62,91 80,95 C 70,89 70,78 80,72 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="62"
+                android:startY="72"
+                android:endX="80"
+                android:endY="95"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#A3C9A8" />
+                <item android:offset="1.0" android:color="#6B9080" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Lotus Silhouette - Right Flanking Petal -->
+    <path
+        android:pathData="M 80,72 C 96,77 98,91 80,95 C 90,89 90,78 80,72 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="98"
+                android:startY="72"
+                android:endX="80"
+                android:endY="95"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#A3C9A8" />
+                <item android:offset="1.0" android:color="#6B9080" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Lotus Silhouette - Center Sacred Petal -->
+    <path
+        android:pathData="M 80,56 C 66,71 66,86 80,95 C 94,86 94,71 80,56 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="80"
+                android:startY="56"
+                android:endX="80"
+                android:endY="95"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#D8F3DC" />
+                <item android:offset="0.5" android:color="#95D5B2" />
+                <item android:offset="1.0" android:color="#52B788" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Center Radiance Jewel -->
+    <path
+        android:fillColor="#FFE8D6"
+        android:pathData="M 80,80 m -4,0 a 4,4 0 1,1 8,0 a 4,4 0 1,1 -8,0" />
+</vector>
