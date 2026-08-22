@@ -55,9 +55,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.ui.util.FlowHapticManager
 import com.example.viewmodel.FlowViewModel
 
@@ -160,7 +162,7 @@ fun FlowIdleNudgeBanner(
 
                         Column {
                             Text(
-                                text = "MINDFUL PRESENCE DETECTED",
+                                text = stringResource(R.string.idle_nudge_presence_title),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.4.sp,
@@ -169,7 +171,7 @@ fun FlowIdleNudgeBanner(
                             )
                             val idleMinutes = (idleSeconds / 60).coerceAtLeast(10)
                             Text(
-                                text = "$idleMinutes minutes of stillness observed",
+                                text = stringResource(R.string.idle_nudge_stillness_observed, idleMinutes),
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = ZenTextSecondary,
                                     fontWeight = FontWeight.Medium
@@ -187,7 +189,7 @@ fun FlowIdleNudgeBanner(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Dismiss",
+                            contentDescription = stringResource(R.string.idle_nudge_cd_dismiss),
                             tint = ZenTextSecondary,
                             modifier = Modifier.size(18.dp)
                         )
@@ -197,7 +199,7 @@ fun FlowIdleNudgeBanner(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = "You’ve maintained stillness in the app. Channel this settled awareness into your next deep focus session or brief grounding ritual.",
+                    text = stringResource(R.string.idle_nudge_description),
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = ZenTextPrimary,
                         lineHeight = 18.sp
@@ -232,7 +234,7 @@ fun FlowIdleNudgeBanner(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Begin Focus",
+                            text = stringResource(R.string.idle_nudge_btn_begin_focus),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
@@ -257,7 +259,7 @@ fun FlowIdleNudgeBanner(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("3 Breaths")
+                        Text(stringResource(R.string.idle_nudge_btn_3_breaths))
                     }
                 }
             }

@@ -87,4 +87,16 @@
     <string name="shortcut_add_reflection_long">Add Journal Reflection</string>
     <string name="shortcut_open_stats_short">Open Stats</string>
     <string name="shortcut_open_stats_long">Open Mirror Stats</string>
+
+    <!-- Idle Nudge & Crossfade Soundscape -->
+    <string name="idle_nudge_presence_title">MINDFUL PRESENCE DETECTED</string>
+    <string name="idle_nudge_stillness_observed">%1$d minutes of stillness observed</string>
+    <string name="idle_nudge_cd_dismiss">Dismiss</string>
+    <string name="idle_nudge_description">You’ve maintained stillness in the app. Channel this settled awareness into your next deep focus session or brief grounding ritual.</string>
+    <string name="idle_nudge_btn_begin_focus">Begin Focus</string>
+    <string name="idle_nudge_btn_3_breaths">3 Breaths</string>
+    <string name="idle_nudge_test_title">10-MIN IDLE STATE DETECTOR</string>
+    <string name="idle_nudge_test_desc">Nudges with a gentle breathing visual cue after 10m stillness</string>
+    <string name="idle_nudge_test_btn">Test Cue</string>
+    <string name="soundscape_crossfading_into">Crossfading into %1$s…</string>
 </resources>

@@ -75,4 +75,27 @@
     <string name="reminder_6">Cảm nhận sức nặng của đôi bàn tay đang thả lỏng trên đùi.</string>
     <string name="reminder_7">Nhìn nhẹ nhàng vào một vật gần bạn. Trân trọng sự hiện diện của nó mà không phán xét.</string>
     <string name="reminder_8">Chạm khẽ vào ngực. Cảm nhận nhịp đập đều đặn, êm dịu của trái tim.</string>
+
+    <!-- App Widget -->
+    <string name="widget_description">Truy cập nhanh để bắt đầu định tâm và xem thống kê hiện diện hàng ngày.</string>
+
+    <!-- App Shortcuts -->
+    <string name="shortcut_start_flow_short">Tập trung</string>
+    <string name="shortcut_start_flow_long">Bắt đầu tập trung Flow</string>
+    <string name="shortcut_add_reflection_short">Nhật ký</string>
+    <string name="shortcut_add_reflection_long">Ghi chép soi chiếu</string>
+    <string name="shortcut_open_stats_short">Thống kê</string>
+    <string name="shortcut_open_stats_long">Xem thống kê Mirror</string>
+
+    <!-- Idle Nudge & Crossfade Soundscape -->
+    <string name="idle_nudge_presence_title">PHÁT HIỆN SỰ TĨNH LẶNG</string>
+    <string name="idle_nudge_stillness_observed">Đã ghi nhận %1$d phút tĩnh lặng</string>
+    <string name="idle_nudge_cd_dismiss">Bỏ qua</string>
+    <string name="idle_nudge_description">Bạn đã duy trì sự tĩnh lặng trong ứng dụng. Hãy chuyển hóa sự hiện diện này vào phiên tập trung tiếp theo hoặc bài thực hành định tâm ngắn.</string>
+    <string name="idle_nudge_btn_begin_focus">Bắt đầu tập trung</string>
+    <string name="idle_nudge_btn_3_breaths">3 Hơi thở</string>
+    <string name="idle_nudge_test_title">BỘ PHÁT HIỆN TĨNH LẶNG 10 PHÚT</string>
+    <string name="idle_nudge_test_desc">Gửi gợi ý hít thở nhẹ nhàng sau 10 phút tĩnh lặng</string>
+    <string name="idle_nudge_test_btn">Thử nghiệm</string>
+    <string name="soundscape_crossfading_into">Đang chuyển êm sang %1$s…</string>
 </resources>

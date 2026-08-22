@@ -32,6 +32,8 @@ import com.example.data.AmbientSoundProfile
 import com.example.viewmodel.FlowViewModel
 
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.example.R
 import com.example.ui.util.FlowHapticManager
 
 @Composable
@@ -179,7 +181,7 @@ fun SoundscapeMixerCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = "Crossfading into ${transitioningTo?.displayName ?: ""}...",
+                        text = stringResource(R.string.soundscape_crossfading_into, transitioningTo?.displayName ?: ""),
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = ZenAmber,
                             fontWeight = FontWeight.Medium

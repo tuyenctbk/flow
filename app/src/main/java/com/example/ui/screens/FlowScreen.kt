@@ -1839,7 +1839,7 @@ fun FlowSettingsDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "10-MIN IDLE STATE DETECTOR",
+                            text = stringResource(R.string.idle_nudge_test_title),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = ZenTextSecondary,
                                 fontWeight = FontWeight.Bold,
@@ -1847,7 +1847,7 @@ fun FlowSettingsDialog(
                             )
                         )
                         Text(
-                            text = "Nudges with a gentle breathing visual cue after 10m stillness",
+                            text = stringResource(R.string.idle_nudge_test_desc),
                             style = MaterialTheme.typography.bodySmall.copy(color = ZenTextSecondary),
                             lineHeight = 14.sp
                         )
@@ -1863,7 +1863,7 @@ fun FlowSettingsDialog(
                         modifier = Modifier.testTag("simulate_idle_nudge_btn")
                     ) {
                         Text(
-                            text = "Test Cue",
+                            text = stringResource(R.string.idle_nudge_test_btn),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = ZenAmber,
                                 fontWeight = FontWeight.Bold
