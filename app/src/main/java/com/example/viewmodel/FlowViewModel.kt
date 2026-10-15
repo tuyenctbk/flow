@@ -30,6 +30,13 @@ import com.example.data.SyncState
 import com.example.data.SyncStatus
 import com.example.ui.theme.FlowTimerPalette
 import com.example.ui.util.FlowHapticManager
+import com.example.data.solarcircadian.CircadianSolarInfo
+import com.example.data.solarcircadian.SolarCircadianRepository
+import com.example.data.solarcircadian.OpenStreetMapGeocodingRepository
+import com.example.data.archiveaudio.ArchiveAudioItem
+import com.example.data.archiveaudio.InternetArchiveAudioPlayer
+import com.example.data.archiveaudio.InternetArchiveAudioRepository
+import com.example.data.archiveaudio.PresetArchiveAudioCollections
 import com.example.R
 
 enum class FocusState {
@@ -1008,8 +1015,116 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
         com.example.service.DailyReminderScheduler.triggerTestNotification(getApplication(), type)
     }
 
+    // Solar Circadian Synchronization & Twilight Engine
+    private val solarCircadianRepository = SolarCircadianRepository()
+    private val openStreetMapGeocodingRepository = OpenStreetMapGeocodingRepository()
+    private val _circadianSolarInfo = MutableStateFlow(CircadianSolarInfo())
+    val circadianSolarInfo: StateFlow<CircadianSolarInfo> = _circadianSolarInfo.asStateFlow()
+
+    private val _circadianAutoSyncEnabled = MutableStateFlow(true)
+    val circadianAutoSyncEnabled: StateFlow<Boolean> = _circadianAutoSyncEnabled.asStateFlow()
+
+    private val _isGeocodingLoading = MutableStateFlow(false)
+    val isGeocodingLoading: StateFlow<Boolean> = _isGeocodingLoading.asStateFlow()
+
+    fun searchAndSetCityLocation(queryCity: String) {
+        if (queryCity.isBlank()) return
+        viewModelScope.launch {
+            _isGeocodingLoading.value = true
+            val result = openStreetMapGeocodingRepository.searchCityCoordinates(queryCity)
+            if (result != null && result.latStr != null && result.lonStr != null) {
+                val lat = result.latStr.toDoubleOrNull() ?: 10.7769
+                val lng = result.lonStr.toDoubleOrNull() ?: 106.7009
+                val cleanName = result.name ?: result.displayName?.split(",")?.firstOrNull() ?: queryCity
+                updateLocationAndSyncSolarInfo(lat, lng, cleanName)
+            }
+            _isGeocodingLoading.value = false
+        }
+    }
+
+    // Internet Archive SoundSlumber Engine
+    val archiveAudioPlayer = InternetArchiveAudioPlayer(getApplication())
+    private val archiveAudioRepository = InternetArchiveAudioRepository()
+
+    private val _archiveAudioItems = MutableStateFlow<List<ArchiveAudioItem>>(PresetArchiveAudioCollections.BUILT_IN_COLLECTIONS)
+    val archiveAudioItems: StateFlow<List<ArchiveAudioItem>> = _archiveAudioItems.asStateFlow()
+
+    private val _archiveSearchQuery = MutableStateFlow("")
+    val archiveSearchQuery: StateFlow<String> = _archiveSearchQuery.asStateFlow()
+
+    private val _isArchiveSearching = MutableStateFlow(false)
+    val isArchiveSearching: StateFlow<Boolean> = _isArchiveSearching.asStateFlow()
+
+    val activeArchiveItem: StateFlow<ArchiveAudioItem?> = archiveAudioPlayer.activeItem
+    val isArchivePlaying: StateFlow<Boolean> = archiveAudioPlayer.isPlaying
+    val isArchiveBuffering: StateFlow<Boolean> = archiveAudioPlayer.isBuffering
+    val archiveVolume: StateFlow<Float> = archiveAudioPlayer.volume
+
+    init {
+        refreshSolarCircadianInfo()
+    }
+
+    fun setCircadianAutoSync(enabled: Boolean) {
+        _circadianAutoSyncEnabled.value = enabled
+        if (enabled) {
+            refreshSolarCircadianInfo()
+        }
+    }
+
+    fun updateLocationAndSyncSolarInfo(lat: Double, lng: Double, cityName: String) {
+        viewModelScope.launch {
+            val info = solarCircadianRepository.fetchSolarCircadianInfo(lat, lng, cityName)
+            _circadianSolarInfo.value = info
+            if (_circadianAutoSyncEnabled.value) {
+                synthesizer.circadianShiftFactor = info.frequencyShiftRatio
+            }
+        }
+    }
+
+    fun refreshSolarCircadianInfo() {
+        viewModelScope.launch {
+            val current = _circadianSolarInfo.value
+            val info = solarCircadianRepository.fetchSolarCircadianInfo(current.lat, current.lng, current.locationName)
+            _circadianSolarInfo.value = info
+            if (_circadianAutoSyncEnabled.value) {
+                synthesizer.circadianShiftFactor = info.frequencyShiftRatio
+            }
+        }
+    }
+
+    fun searchArchiveAudio(query: String) {
+        _archiveSearchQuery.value = query
+        viewModelScope.launch {
+            _isArchiveSearching.value = true
+            val results = archiveAudioRepository.searchAmbientRecordings(query)
+            _archiveAudioItems.value = results
+            _isArchiveSearching.value = false
+        }
+    }
+
+    fun playArchiveItem(item: ArchiveAudioItem) {
+        archiveAudioPlayer.playArchiveItem(item)
+    }
+
+    fun toggleArchivePlayback() {
+        if (isArchivePlaying.value) {
+            archiveAudioPlayer.pause()
+        } else {
+            archiveAudioPlayer.resume()
+        }
+    }
+
+    fun setArchiveVolume(vol: Float) {
+        archiveAudioPlayer.setVolume(vol)
+    }
+
+    fun stopArchiveAudio() {
+        archiveAudioPlayer.stopAndRelease()
+    }
+
     override fun onCleared() {
         super.onCleared()
         synthesizer.stop()
+        archiveAudioPlayer.stopAndRelease()
     }
 }

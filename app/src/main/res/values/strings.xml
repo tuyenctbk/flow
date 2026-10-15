@@ -99,4 +99,41 @@
     <string name="idle_nudge_test_desc">Nudges with a gentle breathing visual cue after 10m stillness</string>
     <string name="idle_nudge_test_btn">Test Cue</string>
     <string name="soundscape_crossfading_into">Crossfading into %1$s…</string>
+    <!-- Circadian Twilight & Solar Sync -->
+    <string name="circadian_twilight_sync">CIRCADIAN TWILIGHT SYNC</string>
+    <string name="circadian_phase_dawn">Dawn (First Light)</string>
+    <string name="circadian_phase_dawn_desc">Soft morning light. Focus mind is gentle and awakening.</string>
+    <string name="circadian_phase_daylight">Daylight Peak Focus</string>
+    <string name="circadian_phase_daylight_desc">High cognitive clarity. Ideal for deep work and problem solving.</string>
+    <string name="circadian_phase_golden_hour">Golden Hour Twilight</string>
+    <string name="circadian_phase_golden_hour_desc">Sun is descending. Frequencies shift towards calming warm resonance.</string>
+    <string name="circadian_phase_sunset_twilight">Sunset Twilight Calm</string>
+    <string name="circadian_phase_sunset_twilight_desc">Twilight glow. Screen dims smoothly and audio filters soften.</string>
+    <string name="circadian_phase_nightfall">Nightfall Relaxation</string>
+    <string name="circadian_phase_nightfall_desc">Preparing for rest. Acoustic warmth lowers cortisol and quietens thoughts.</string>
+    <string name="circadian_phase_deep_sleep">Deep Sleep &amp; Slumber</string>
+    <string name="circadian_phase_deep_sleep_desc">Midnight calm. Optimal delta/theta binaural frequencies for restorative sleep.</string>
+    <string name="refresh_solar_data">Sync Solar Phase</string>
+    <string name="sunrise_label">Sunrise</string>
+    <string name="sunset_label">Sunset</string>
+    <string name="twilight_end_label">Twilight End</string>
+    <string name="circadian_auto_sync_title">Circadian Auto Dimming</string>
+    <string name="circadian_auto_sync_active">Auto-Syncing • %1$d%% Dim &amp; Low-Pass Shift</string>
+    <string name="circadian_auto_sync_off">Disabled • Manual Theme</string>
+    <string name="select_location_title">Select Solar Location</string>
+    <string name="select_location_subtitle">Sync twilight times with your exact geographic region:</string>
+    <string name="close_button">Close</string>
+
+    <!-- SoundSlumber Internet Archive Audio -->
+    <string name="soundslumber_header_title">SOUNDSLUMBER FIELD AUDIO</string>
+    <string name="soundslumber_header_subtitle">Stream Limitless Internet Archive Field Recordings</string>
+    <string name="soundslumber_search_placeholder">Search rainforest, thunderstorm, NASA space, ocean…</string>
+    <string name="buffering_archive_stream">Buffering Internet Archive Stream…</string>
+    <string name="streaming_from_archive_org">Streaming Live from Archive.org</string>
+    <string name="stream_paused">Stream Paused</string>
+    <!-- Soundscape Matrix -->
+    <string name="soundscape_matrix_title">SOUNDSCAPE MATRIX</string>
+    <string name="hide_mixer_label">Hide Mixer</string>
+    <string name="mix_layers_label">Mix Layers</string>
+    <string name="acoustic_blend_title">ACOUSTIC MULTI-LAYER BLEND</string>
 </resources>

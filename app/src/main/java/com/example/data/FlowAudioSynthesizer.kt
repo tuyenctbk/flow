@@ -39,6 +39,7 @@ class FlowAudioSynthesizer {
     val transitioningTo = _transitioningTo.asStateFlow()
 
     @Volatile var masterVolume = 0.7f
+    @Volatile var circadianShiftFactor = 0.0f // 0.0f (Daylight crisp) -> 1.0f (Sunset/Night deep warm low-pass)
 
     // Layer Sliders (0.0f to 1.0f) for Multi-Layer Mixing
     @Volatile var binauralBeatVolume = 0.4f     // Brainwave entrainment (40Hz Gamma / 10Hz Alpha / 6Hz Theta)
@@ -60,6 +61,8 @@ class FlowAudioSynthesizer {
     // Filter states for natural sound synthesis
     private var lastBrownLeft = 0.0f
     private var lastBrownRight = 0.0f
+    private var lastFilteredLeft = 0.0f
+    private var lastFilteredRight = 0.0f
     private var pinkB0 = 0.0f
     private var pinkB1 = 0.0f
     private var pinkB2 = 0.0f
@@ -215,11 +218,20 @@ class FlowAudioSynthesizer {
                                     bowlEnvelope = 0.0f
                                 }
 
-                                val outLeft = (ambLeft + bowlLeft).coerceIn(-1.0f, 1.0f)
-                                val outRight = (ambRight + bowlRight).coerceIn(-1.0f, 1.0f)
+                                var rawLeft = (ambLeft + bowlLeft).coerceIn(-1.0f, 1.0f)
+                                var rawRight = (ambRight + bowlRight).coerceIn(-1.0f, 1.0f)
 
-                                buffer[i] = (outLeft * 32767).toInt().toShort()
-                                buffer[i + 1] = (outRight * 32767).toInt().toShort()
+                                // Apply Circadian Twilight Low-Pass Filter Warmth Shift
+                                if (circadianShiftFactor > 0.05f) {
+                                    val alpha = (1.0f - (circadianShiftFactor * 0.65f)).coerceIn(0.15f, 1.0f)
+                                    lastFilteredLeft += alpha * (rawLeft - lastFilteredLeft)
+                                    lastFilteredRight += alpha * (rawRight - lastFilteredRight)
+                                    rawLeft = lastFilteredLeft
+                                    rawRight = lastFilteredRight
+                                }
+
+                                buffer[i] = (rawLeft * 32767).toInt().toShort()
+                                buffer[i + 1] = (rawRight * 32767).toInt().toShort()
 
                                 sampleIndex++
                             }
