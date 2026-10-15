@@ -165,7 +165,8 @@ class FirebaseIntegration(context: Context? = null) {
     }
 
     /**
-     * Firebase AI / Gemini API Integration to generate a personalized focus mantra
+     * Pure Open Local Wisdom Engine to generate a personalized focus mantra
+     * 100% Free, 100% Offline, No API key or freemium cloud limits required.
      */
     suspend fun generateFocusMantra(intent: String): String = withContext(Dispatchers.IO) {
         logEvent("generate_focus_mantra_requested", mapOf("intent" to intent))
@@ -180,63 +181,18 @@ class FirebaseIntegration(context: Context? = null) {
         }
 
         _isAiLoading.value = true
+        kotlinx.coroutines.delay(150) // Subtle organic feeling
 
-        val apiKey = try { BuildConfig.GEMINI_API_KEY } catch (e: Exception) { "" }
-        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-            _isAiLoading.value = false
-            val fallback = getFallbackMantra(intent)
-            saveCachedMantra(trimmedIntent, fallback)
-            _aiMantra.value = fallback
-            return@withContext fallback
-        }
-
-        try {
-            val jsonBody = JSONObject().apply {
-                put("contents", JSONArray().put(JSONObject().apply {
-                    put("parts", JSONArray().put(JSONObject().apply {
-                        put("text", "You are a serene Zen Focus Mentor. Write a single inspiring, calming 1-sentence micro-mantra for someone about to focus on: '$intent'. Keep it under 20 words, deeply peaceful.")
-                    }))
-                }))
-            }
-
-            val request = Request.Builder()
-                .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey")
-                .post(jsonBody.toString().toRequestBody("application/json".toMediaType()))
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val bodyString = response.body?.string() ?: ""
-                    val root = JSONObject(bodyString)
-                    val candidates = root.optJSONArray("candidates")
-                    val text = candidates?.optJSONObject(0)
-                        ?.optJSONObject("content")
-                        ?.optJSONArray("parts")
-                        ?.optJSONObject(0)
-                        ?.optString("text")
-
-                    if (!text.isNullOrBlank()) {
-                        val cleanText = text.trim().removeSurrounding("\"", "\"")
-                        saveCachedMantra(trimmedIntent, cleanText)
-                        _aiMantra.value = cleanText
-                        _isAiLoading.value = false
-                        return@withContext cleanText
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            // Silently catch rate-limits, network issues, or quota errors and use fallback
-        }
-
+        val localMantra = getFallbackMantra(intent)
+        saveCachedMantra(trimmedIntent, localMantra)
+        _aiMantra.value = localMantra
         _isAiLoading.value = false
-        val fallback = getFallbackMantra(intent)
-        saveCachedMantra(trimmedIntent, fallback)
-        _aiMantra.value = fallback
-        return@withContext fallback
+        return@withContext localMantra
     }
 
     /**
-     * Firebase AI / Gemini API Integration to generate reflection feedback
+     * Pure Open Local Wisdom Engine to generate reflection feedback
+     * 100% Free, 100% Offline, No API key or freemium cloud limits required.
      */
     suspend fun generateReflectionInsight(
         intent: String,
@@ -251,55 +207,10 @@ class FirebaseIntegration(context: Context? = null) {
             return@withContext cachedReflection
         }
 
-        val apiKey = try { BuildConfig.GEMINI_API_KEY } catch (e: Exception) { "" }
-        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-            val fallback = getFallbackReflection(flowScore, frictionNotes)
-            saveCachedReflection(cacheKey, fallback)
-            return@withContext fallback
-        }
-
-        try {
-            val prompt = "User completed a $durationMinutes minute focus session for '$intent'. " +
-                    "Flow state rating: $flowScore/5. Friction notes: '${frictionNotes.ifBlank { "None" }}'. " +
-                    "Provide a warm, 2-sentence metacognitive insight celebrating their progress and offering a subtle tip for next time."
-
-            val jsonBody = JSONObject().apply {
-                put("contents", JSONArray().put(JSONObject().apply {
-                    put("parts", JSONArray().put(JSONObject().apply {
-                        put("text", prompt)
-                    }))
-                }))
-            }
-
-            val request = Request.Builder()
-                .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey")
-                .post(jsonBody.toString().toRequestBody("application/json".toMediaType()))
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val bodyString = response.body?.string() ?: ""
-                    val root = JSONObject(bodyString)
-                    val text = root.optJSONArray("candidates")?.optJSONObject(0)
-                        ?.optJSONObject("content")
-                        ?.optJSONArray("parts")
-                        ?.optJSONObject(0)
-                        ?.optString("text")
-
-                    if (!text.isNullOrBlank()) {
-                        val result = text.trim()
-                        saveCachedReflection(cacheKey, result)
-                        return@withContext result
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-
-        val fallback = getFallbackReflection(flowScore, frictionNotes)
-        saveCachedReflection(cacheKey, fallback)
-        return@withContext fallback
+        kotlinx.coroutines.delay(150)
+        val localReflection = getFallbackReflection(flowScore, frictionNotes)
+        saveCachedReflection(cacheKey, localReflection)
+        return@withContext localReflection
     }
 
     /**

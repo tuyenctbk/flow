@@ -107,6 +107,16 @@ fun FlowScreen(
             }
         }
 
+        val circadianInfo by viewModel.circadianSolarInfo.collectAsState()
+        val autoSyncEnabled by viewModel.circadianAutoSyncEnabled.collectAsState()
+        if (autoSyncEnabled && circadianInfo.dimRatio > 0.05f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = (circadianInfo.dimRatio * 0.35f).coerceIn(0f, 0.5f)))
+            )
+        }
+
         SmartPromptOverlay(viewModel)
     }
 }
@@ -537,6 +547,16 @@ fun IdleSetupView(viewModel: FlowViewModel) {
 
             // Ambient Background Soundscapes & Multi-Layer Mixer
             com.example.ui.components.SoundscapeMixerCard(viewModel = viewModel)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Local Solar Twilight & Circadian Rhythm Synchronization
+            com.example.ui.components.CircadianTwilightCard(viewModel = viewModel)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // SoundSlumber: Internet Archive Ambient Field Recordings
+            com.example.ui.components.SoundSlumberArchiveCard(viewModel = viewModel)
 
         }
 

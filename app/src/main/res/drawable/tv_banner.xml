@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+
+    <!-- Deep Ambient Obsidian Canvas -->
+    <path
+        android:pathData="M0,0h320v180h-320z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="0"
+                android:startY="0"
+                android:endX="320"
+                android:endY="180"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#0F2420" />
+                <item android:offset="0.5" android:color="#0A1815" />
+                <item android:offset="1.0" android:color="#030806" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Zen Ensō Circle Background Graphic on Left -->
+    <path
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:pathData="M 90,90 m -45,0 a 45,45 0 1,1 90,0 a 45,45 0 1,1 -80,26">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="45"
+                android:startY="45"
+                android:endX="135"
+                android:endY="135"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#33FFD166" />
+                <item android:offset="0.5" android:color="#33F4A261" />
+                <item android:offset="1.0" android:color="#11E76F51" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Lotus Emblem Center-Left -->
+    <!-- Center Petal -->
+    <path
+        android:pathData="M 90,62 C 78,76 78,92 90,102 C 102,92 102,76 90,62 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="90"
+                android:startY="62"
+                android:endX="90"
+                android:endY="102"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#D8F3DC" />
+                <item android:offset="0.5" android:color="#95D5B2" />
+                <item android:offset="1.0" android:color="#52B788" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Left Petal -->
+    <path
+        android:pathData="M 90,78 C 73,83 71,98 90,102 C 79,96 79,85 90,78 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="71"
+                android:startY="78"
+                android:endX="90"
+                android:endY="102"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#A3C9A8" />
+                <item android:offset="1.0" android:color="#6B9080" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Right Petal -->
+    <path
+        android:pathData="M 90,78 C 107,83 109,98 90,102 C 101,96 101,85 90,78 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="109"
+                android:startY="78"
+                android:endX="90"
+                android:endY="102"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#A3C9A8" />
+                <item android:offset="1.0" android:color="#6B9080" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Glowing Core -->
+    <path
+        android:fillColor="#FFE8D6"
+        android:pathData="M 90,88 m -4,0 a 4,4 0 1,1 8,0 a 4,4 0 1,1 -8,0" />
+
+</vector>

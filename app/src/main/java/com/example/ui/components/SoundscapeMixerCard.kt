@@ -92,7 +92,7 @@ fun SoundscapeMixerCard(
                     }
                     Column {
                         Text(
-                            text = "SOUNDSCAPE MATRIX",
+                            text = stringResource(R.string.soundscape_matrix_title),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = ZenAmber,
                                 fontWeight = FontWeight.Bold,
@@ -145,7 +145,7 @@ fun SoundscapeMixerCard(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (showMixerPanel) "Hide Mixer" else "Mix Layers",
+                            text = if (showMixerPanel) stringResource(R.string.hide_mixer_label) else stringResource(R.string.mix_layers_label),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = if (showMixerPanel) ZenAmber else ZenTextSecondary,
                                 fontWeight = FontWeight.SemiBold
@@ -246,7 +246,7 @@ fun SoundscapeMixerCard(
                     Divider(color = ZenStoneGrey.copy(alpha = 0.6f))
 
                     Text(
-                        text = "ACOUSTIC MULTI-LAYER BLEND",
+                        text = stringResource(R.string.acoustic_blend_title),
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = ZenAmber,
                             fontWeight = FontWeight.Bold,

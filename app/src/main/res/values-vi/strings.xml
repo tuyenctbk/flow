@@ -98,4 +98,42 @@
     <string name="idle_nudge_test_desc">Gửi gợi ý hít thở nhẹ nhàng sau 10 phút tĩnh lặng</string>
     <string name="idle_nudge_test_btn">Thử nghiệm</string>
     <string name="soundscape_crossfading_into">Đang chuyển êm sang %1$s…</string>
+
+    <!-- Circadian Twilight & Solar Sync -->
+    <string name="circadian_twilight_sync">ĐỒNG BỘ HOÀNG HÔN &amp; NHỊP SINH HỌC</string>
+    <string name="circadian_phase_dawn">Hạng Bình Minh (Nắng Sớm)</string>
+    <string name="circadian_phase_dawn_desc">Ánh sáng ban mai êm dịu. Tâm trí đang thức tỉnh nhẹ nhàng.</string>
+    <string name="circadian_phase_daylight">Ban Ngày - Tiêu Điểm Đỉnh Cao</string>
+    <string name="circadian_phase_daylight_desc">Tâm trí minh mẫn cao độ. Lý tưởng cho công việc sâu và giải quyết vấn đề.</string>
+    <string name="circadian_phase_golden_hour">Giờ Vàng Hoàng Hôn</string>
+    <string name="circadian_phase_golden_hour_desc">Mặt trời dần lặn. Tần số âm thanh chuyển hướng trầm ấm thư thái.</string>
+    <string name="circadian_phase_sunset_twilight">Hoàng Hôn Tĩnh Lặng</string>
+    <string name="circadian_phase_sunset_twilight_desc">Ánh hoàng hôn dịu mát. Màn hình tự động giảm sáng và âm thanh lắng dịu.</string>
+    <string name="circadian_phase_nightfall">Chạng Vạng Thư Giãn</string>
+    <string name="circadian_phase_nightfall_desc">Chuẩn bị nghỉ ngơi. Âm sắc ấm áp giúp hạ hormone căng thẳng cortisol và lắng dịu suy nghĩ.</string>
+    <string name="circadian_phase_deep_sleep">Giấc Ngủ Sâu SoundSlumber</string>
+    <string name="circadian_phase_deep_sleep_desc">Tĩnh lặng nửa đêm. Tần số sóng não Delta/Theta tối ưu cho giấc ngủ phục hồi.</string>
+    <string name="refresh_solar_data">Đồng bộ mặt trời</string>
+    <string name="sunrise_label">Bình minh</string>
+    <string name="sunset_label">Hoàng hôn</string>
+    <string name="twilight_end_label">Kết thúc chạng vạng</string>
+    <string name="circadian_auto_sync_title">Tự động giảm sáng Sinh học</string>
+    <string name="circadian_auto_sync_active">Đang đồng bộ • Mức dịu %1$d%% &amp; Lọc âm trầm</string>
+    <string name="circadian_auto_sync_off">Đã tắt • Giao diện thủ công</string>
+    <string name="select_location_title">Chọn vị trí địa lý</string>
+    <string name="select_location_subtitle">Đồng bộ giờ hoàng hôn chính xác theo khu vực của bạn:</string>
+    <string name="close_button">Đóng</string>
+
+    <!-- SoundSlumber Internet Archive Audio -->
+    <string name="soundslumber_header_title">ÂM THANH TỰ NHIÊN SOUNDSLUMBER</string>
+    <string name="soundslumber_header_subtitle">Phát trực tuyến không giới hạn kho đĩa Internet Archive</string>
+    <string name="soundslumber_search_placeholder">Tìm kiếm rừng mưa, sấm sét, không gian NASA, sóng biển…</string>
+    <string name="buffering_archive_stream">Đang tải luồng âm thanh Internet Archive…</string>
+    <string name="streaming_from_archive_org">Đang phát trực tiếp từ Archive.org</string>
+    <string name="stream_paused">Đã tạm dừng</string>
+    <!-- Soundscape Matrix -->
+    <string name="soundscape_matrix_title">BỘ TRỘN ÂM KHÔNG GIAN</string>
+    <string name="hide_mixer_label">Ẩn bộ trộn</string>
+    <string name="mix_layers_label">Tùy chỉnh lớp âm</string>
+    <string name="acoustic_blend_title">CỘNG HƯỞNG ÂM THANH ĐA LỚP</string>
 </resources>
